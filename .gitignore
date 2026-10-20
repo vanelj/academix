@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Copias de seguridad de Supabase
+/backup-supabase/
+
+# Archivos de compilación
+/dist/
+
+# Archivos temporales
+*.bak
+*.tmp
