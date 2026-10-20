@@ -48,4 +48,4 @@ next-env.d.ts
 
 # Archivos temporales
 *.bak
-*.tmp
+*.tmpgit remote add origin https://github.com/vanelj/academix.git
