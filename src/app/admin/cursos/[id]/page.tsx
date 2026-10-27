@@ -3,7 +3,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, CircleAlert, CircleCheck, Info } from "lucide-react"
 
+import { CertificacionCursoForm } from "@/components/admin/cursos/certificacion-curso"
 import { CursoAcciones } from "@/components/admin/cursos/curso-acciones"
+import { PlanCuotas } from "@/components/admin/cursos/plan-cuotas"
 import {
   DESCRIPCION_ESTADO,
   ETIQUETA_COBRO,
@@ -15,7 +17,8 @@ import {
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { requerirPanel } from "@/lib/auth/contexto"
-import { obtenerCurso } from "@/lib/cursos/datos"
+import { obtenerCertificacionCurso } from "@/lib/certificados/datos"
+import { obtenerCurso, obtenerPlanCuotas } from "@/lib/cursos/datos"
 import { cn } from "@/lib/utils"
 import { idCursoSchema, importeTotalCondiciones } from "@/lib/validations/curso"
 
@@ -39,6 +42,8 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
   const categoriaActiva = curso.categoria?.activo === true
   const puedePublicar = categoriaActiva && curso.tieneCondiciones === true
   const faltaPlan = c?.tipo_cobro === "cuotas" && c.importe_curso > 0 && curso.cuotasPlan === 0
+  const plan = c?.tipo_cobro === "cuotas" ? await obtenerPlanCuotas(institucionId, curso.id) : null
+  const certificacion = await obtenerCertificacionCurso(institucionId, curso.id).catch(() => ({ disponible: false as const }))
 
   return (
     <>
@@ -139,6 +144,45 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Certificado</CardTitle>
+              <CardDescription>Si el curso entrega certificado, cómo se cobra y qué se exige. Se muestra en el catálogo antes de la inscripción.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {certificacion.disponible ? (
+                <CertificacionCursoForm
+                  cursoId={curso.id}
+                  config={certificacion.config}
+                  plantillas={certificacion.plantillas}
+                  firmantes={certificacion.firmantes}
+                  notaAprobatoria={curso.nota_aprobatoria}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">La configuración de certificados requiere la migración «certificados_v5», pendiente de aplicar.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {c?.tipo_cobro === "cuotas" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan de cuotas</CardTitle>
+                <CardDescription>
+                  Mensualidades que se generan al confirmar cada matrícula. La matrícula ({formatoSoles.format(c.matricula_importe)}) se paga
+                  aparte, al inscribirse.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {plan ? (
+                  <PlanCuotas cursoId={curso.id} plan={plan} importeCurso={c.importe_curso} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">No se pudo cargar el plan de cuotas. Recarga la página.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-20">
@@ -164,11 +208,21 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
                 Además de estar publicado, el curso necesitará al menos un grupo abierto con docente,
                 horarios y vacantes (módulo «Grupos y horarios»).
               </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Link href={`/admin/grupos?curso=${curso.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Ver grupos ({curso.grupos ?? 0})
+                </Link>
+                {curso.estado !== "desactivado" && (
+                  <Link href={`/admin/grupos/nuevo?curso=${curso.id}`} className={buttonVariants({ size: "sm" })}>
+                    Nuevo grupo
+                  </Link>
+                )}
+              </div>
               {faltaPlan && (
                 <p className="flex gap-2">
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-                  El cobro es en cuotas y aún no tiene plan de cuotas. Sin él no se aceptarán matrículas
-                  (se configurará en una etapa posterior).
+                  El cobro es en cuotas y aún no tiene plan de cuotas. Sin él no se aceptarán matrículas:
+                  configúralo en «Plan de cuotas».
                 </p>
               )}
             </CardContent>

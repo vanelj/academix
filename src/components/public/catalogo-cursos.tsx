@@ -43,7 +43,7 @@ export function CursosGrid({ cursos }: { cursos: OfertaCurso[] }) {
     <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {cursos.map((curso) => (
         <li key={curso.id}>
-          <CursoCard curso={curso} />
+          <CursoCard curso={curso} detalleHref={`/cursos/${curso.id}`} />
         </li>
       ))}
     </ul>

@@ -6,9 +6,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
  * Usa la clave secreta del proyecto, que omite RLS. Por eso:
  * - Se lee de SUPABASE_SECRET_KEY (o SUPABASE_SERVICE_ROLE_KEY, nombre heredado):
  *   variables SIN prefijo NEXT_PUBLIC_, que Next.js nunca envía al navegador.
- * - Solo lo importan acciones y lecturas de servidor del módulo Docentes, y
- *   SIEMPRE después de verificar con la sesión del usuario que es administrador
- *   activo de la institución (institucionDelAdmin).
+ * - Lo importan acciones y lecturas de servidor del módulo Docentes, SIEMPRE
+ *   después de verificar con la sesión del usuario que es administrador activo
+ *   de la institución (institucionDelAdmin), y el procesador de correos
+ *   (lib/correos/procesar.ts), solo para sus RPC exclusivas de service_role.
  * - Se limita a lo que la clave pública no puede hacer: crear o eliminar cuentas
  *   de Auth, enviar invitaciones, leer el correo de una cuenta y crear el perfil
  *   inicial (public.perfiles no tiene política INSERT en V5).

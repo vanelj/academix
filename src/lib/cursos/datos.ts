@@ -38,7 +38,7 @@ export type CursoResumen = {
 
 export type CursoDetalle = CursoResumen & {
   condiciones: Condiciones | null
-  /** Filas de plan_cuotas (se gestionan en un módulo posterior). */
+  /** Filas de plan_cuotas (se gestionan en «Plan de cuotas» del detalle del curso). */
   cuotasPlan: number | null
 }
 
@@ -199,4 +199,30 @@ export async function obtenerCategoriasParaCurso(
     throw new Error("No se pudieron cargar las categorías.")
   }
   return (data ?? []).filter((c) => c.activo || c.id === categoriaActual)
+}
+
+export type CuotaPlan = {
+  id: string
+  numero: number
+  concepto: string
+  importe: number
+  dias_desde_inicio: number | null
+  descripcion_vencimiento: string | null
+}
+
+/** Plan de cuotas del curso (RLS "admin administra plan cuotas"). null = no se pudo leer. */
+export async function obtenerPlanCuotas(institucionId: string, cursoId: string): Promise<CuotaPlan[] | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("plan_cuotas")
+    .select("id, numero, concepto, importe, dias_desde_inicio, descripcion_vencimiento")
+    .eq("institucion_id", institucionId)
+    .eq("curso_id", cursoId)
+    .order("numero")
+    .overrideTypes<CuotaPlan[], { merge: false }>()
+  if (error) {
+    console.error("[cursos] plan de cuotas", error.code, error.message)
+    return null
+  }
+  return (data ?? []).map((c) => ({ ...c, importe: Number(c.importe) }))
 }
