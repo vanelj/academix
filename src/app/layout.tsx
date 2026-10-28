@@ -16,9 +16,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Los iconos (favicon.ico, icon.svg, icon1.png, icon2.png y apple-icon.png en app/)
+// los declara Next por convención de archivos: no se repiten aquí.
 export const metadata: Metadata = {
   title: "Academix",
-  description: "Academix: plataforma de oferta y gestión de cursos virtuales para instituciones educativas.",
+  applicationName: "Academix",
+  description: "Plataforma de Oferta y Gestión de Cursos Virtuales",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

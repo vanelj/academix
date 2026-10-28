@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* Interfaz pública Creative Tech: utilidades ax-* y variables limitadas a [data-academix]. */
+@import "../academix/styles/tailwind-v4-theme.css";
+@import "../academix/styles/academix.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

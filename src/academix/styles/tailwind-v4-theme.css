@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Academix · Tailwind CSS v4
+   Importa este archivo DESPUÉS de `@import "tailwindcss";` en tu CSS global.
+   Expone las variables de academix.css como utilidades: bg-ax-surface,
+   text-ax-muted, border-ax-line, font-ax-display, shadow-ax, etc.
+   (Para Tailwind v3 usa tailwind/academix.preset.js en su lugar.)
+   ========================================================================== */
+
+@theme inline {
+  --color-ax-bg: var(--ax-bg);
+  --color-ax-surface: var(--ax-surface);
+  --color-ax-surface-2: var(--ax-surface-2);
+  --color-ax-ink: var(--ax-ink);
+  --color-ax-muted: var(--ax-muted);
+  --color-ax-line: var(--ax-line);
+  --color-ax-blue: var(--ax-blue);
+  --color-ax-blue-hover: var(--ax-blue-hover);
+  --color-ax-blue-text: var(--ax-blue-text);
+  --color-ax-violet: var(--ax-violet);
+  --color-ax-violet-text: var(--ax-violet-text);
+  --color-ax-soft-blue: var(--ax-soft-blue);
+  --color-ax-soft-violet: var(--ax-soft-violet);
+  --color-ax-night: var(--ax-night);
+  --color-ax-lime: var(--ax-lime);
+  --color-ax-cyan: var(--ax-cyan);
+  --color-ax-periwinkle: var(--ax-periwinkle);
+  --color-ax-lilac: var(--ax-lilac);
+  --color-ax-lime-soft: var(--ax-lime-soft);
+  --color-ax-band-text: var(--ax-band-text);
+  --color-ax-band-muted: var(--ax-band-muted);
+
+  --font-ax-display: var(--ax-font-display, "Space Grotesk"), system-ui, sans-serif;
+  --font-ax-body: var(--ax-font-body, "IBM Plex Sans"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ax-mono: var(--ax-font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+
+  --shadow-ax: var(--ax-shadow);
+  --shadow-ax-header: var(--ax-shadow-header);
+  --shadow-ax-blue: var(--ax-shadow-blue);
+}

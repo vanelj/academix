@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!-- Logotipo de Academix: copia exacta de src/components/marca/logo-academix.tsx -->
+  <defs>
+    <linearGradient id="academix" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="10" fill="url(#academix)"/>
+  <path d="M20 6.5 7 12.5l13 6 13-6-13-6Z" fill="#fff"/>
+  <path d="M12 15.2v3.6c0 1.6 3.6 3.2 8 3.2s8-1.6 8-3.2v-3.6L20 19l-8-3.8Z" fill="#fff" fill-opacity=".75"/>
+  <path d="M31.5 13.3v6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M14.5 34 20 24l5.5 10" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16.7 30.4h6.6" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+</svg>
