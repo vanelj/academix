@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { CircleAlert, CircleCheck, ShieldCheck } from "lucide-react"
 
-import { PublicFooter } from "@/components/public/public-footer"
-import { PublicHeader } from "@/components/public/public-header"
+import { AcademixPublico } from "@/components/public/academix-publico"
+import { AxCabecera, AxPie } from "@/components/public/academix-secciones"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { verificarCertificado } from "@/lib/certificados/verificacion"
@@ -28,9 +28,12 @@ export default async function VerificacionPage({ params }: PageProps<"/verificar
   const r = await verificarCertificado(texto)
 
   return (
+    <AcademixPublico>
     <div className="flex min-h-dvh flex-col">
-      <PublicHeader />
+      <AxCabecera />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10">
+        {/* Encabezado principal para lectores de pantalla y buscadores (la tarjeta lleva el título visible). */}
+        <h1 className="sr-only">Verificación de certificado</h1>
         {r.estado === "valido" ? (
           <Card className="border-success/40">
             <CardHeader>
@@ -71,8 +74,9 @@ export default async function VerificacionPage({ params }: PageProps<"/verificar
           </Card>
         )}
       </main>
-      <PublicFooter />
+      <AxPie />
     </div>
+    </AcademixPublico>
   )
 }
 

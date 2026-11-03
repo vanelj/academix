@@ -32,7 +32,7 @@ import {
 
 type Icono = React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>
 
-const DESCRIPCION_COBRO: Record<TipoCobro, { titulo: string; texto: string }> = {
+export const DESCRIPCION_COBRO: Record<TipoCobro, { titulo: string; texto: string }> = {
   gratuito: { titulo: "Gratuito", texto: "Sin importes ni reserva de vacante." },
   unico: { titulo: "Pago único", texto: "Matrícula y curso se pagan al inscribirse." },
   cuotas: { titulo: "En cuotas", texto: "Matrícula al inscribirse; el curso, según un plan de cuotas." },
@@ -369,7 +369,7 @@ export function CursoForm({
 }
 
 /** Aviso (no bloquea) si el precio publicado no coincide con lo que fijan las condiciones. */
-function AvisoPrecio({ control }: { control: Control<CursoValues> }) {
+export function AvisoPrecio({ control }: { control: Control<CursoValues> }) {
   const [precio, tipo, matricula, importe] = useWatch({
     control,
     name: ["precio", "condiciones.tipo_cobro", "condiciones.matricula_importe", "condiciones.importe_curso"],
@@ -387,7 +387,7 @@ function AvisoPrecio({ control }: { control: Control<CursoValues> }) {
   )
 }
 
-function Seccion({
+export function Seccion({
   icono: Icono,
   titulo,
   descripcion,
@@ -412,7 +412,7 @@ function Seccion({
   )
 }
 
-function CampoTexto({
+export function CampoTexto({
   control,
   name,
   label,
@@ -463,7 +463,7 @@ function CampoTexto({
   )
 }
 
-function CampoArea({
+export function CampoArea({
   control,
   name,
   label,

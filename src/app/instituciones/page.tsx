@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Conoce las instituciones que ofrecen cursos virtuales en nuestra plataforma.",
 }
 
-// Directorio público de instituciones (diseño Creative Tech). V4/V5 no expone la
+// Directorio público de instituciones (diseño Academix Vibrant). V4/V5 no expone la
 // tabla instituciones a visitantes: los datos salen de la vista pública
 // oferta_cursos, así que solo aparecen instituciones activas con cursos publicados.
 // Admite ?q= (nombre), ?area= (categoría de sus cursos) y ?orden=cursos.

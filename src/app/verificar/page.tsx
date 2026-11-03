@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { ShieldCheck } from "lucide-react"
 
-import { PublicFooter } from "@/components/public/public-footer"
-import { PublicHeader } from "@/components/public/public-header"
+import { AcademixPublico } from "@/components/public/academix-publico"
+import { AxCabecera, AxPie } from "@/components/public/academix-secciones"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,9 +20,12 @@ export default async function VerificarPage({ searchParams }: PageProps<"/verifi
   if (valor && codigoValido(valor)) redirect(`/verificar/${encodeURIComponent(normalizarCodigo(valor))}`)
 
   return (
+    <AcademixPublico>
     <div className="flex min-h-dvh flex-col">
-      <PublicHeader />
+      <AxCabecera />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10">
+        {/* Encabezado principal para lectores de pantalla y buscadores (la tarjeta lleva el título visible). */}
+        <h1 className="sr-only">Verificar certificado</h1>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><ShieldCheck className="size-5 text-primary" aria-hidden />Verificar un certificado</CardTitle>
@@ -38,7 +41,8 @@ export default async function VerificarPage({ searchParams }: PageProps<"/verifi
           </CardContent>
         </Card>
       </main>
-      <PublicFooter />
+      <AxPie />
     </div>
+    </AcademixPublico>
   )
 }

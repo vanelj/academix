@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-import { LogoAcademix, NOMBRE_MARCA } from "@/components/marca/logo-academix"
+import { DENOMINACION, LogoAcademix, NOMBRE_MARCA } from "@/components/marca/logo-academix"
 import { cn } from "@/lib/utils"
 
 export function Brand({ className }: { className?: string }) {
@@ -14,8 +14,8 @@ export function Brand({ className }: { className?: string }) {
     >
       <LogoAcademix />
       <span className="leading-tight">
-        <span className="block text-sm font-semibold">{NOMBRE_MARCA}</span>
-        <span className="block text-xs text-muted-foreground">Gestión académica</span>
+        <span className="block font-heading text-base font-extrabold">{NOMBRE_MARCA}</span>
+        <span className="block max-w-[15rem] text-[11px] leading-tight text-muted-foreground">{DENOMINACION}</span>
       </span>
     </Link>
   )

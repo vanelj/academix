@@ -3,21 +3,22 @@ import { AnchorLink } from '../../context/AcademixUIProvider';
 import { cn } from '../../lib/cn';
 import type { LinkComponent } from '../../types';
 
-export type ButtonVariant = 'primary' | 'ghost' | 'text';
+export type ButtonVariant = 'primary' | 'yellow' | 'outline' | 'soft';
 export type ButtonSize = 'md' | 'sm';
 
 const base =
-  'inline-flex items-center justify-center gap-2.5 whitespace-nowrap border font-ax-display font-semibold leading-none no-underline cursor-pointer transition-[background-color,border-color,box-shadow,transform] duration-200';
+  'inline-flex items-center justify-center gap-2.5 whitespace-nowrap rounded-full border-2 font-ax-body font-bold leading-none no-underline cursor-pointer transition-[transform,background-color,box-shadow,border-color] duration-200 hover:-translate-y-0.5';
 
 const sizes: Record<ButtonSize, string> = {
-  md: 'min-h-[52px] px-6 text-base rounded-xl',
-  sm: 'min-h-[44px] px-4 text-[15px] rounded-[11px]',
+  md: 'min-h-[50px] px-[26px] text-base',
+  sm: 'min-h-[44px] px-[18px] text-[15px]',
 };
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'border-transparent bg-ax-blue text-white shadow-ax-blue hover:bg-ax-blue-hover hover:-translate-y-px',
-  ghost: 'border-ax-line bg-ax-surface text-ax-ink hover:border-ax-blue-text',
-  text: 'border-transparent bg-transparent text-ax-blue-text px-0',
+  primary: 'border-transparent bg-ax-violet text-white shadow-ax-violet hover:bg-ax-violet-hover',
+  yellow: 'border-transparent bg-ax-yellow text-ax-indigo',
+  outline: 'border-ax-ink bg-transparent text-ax-ink',
+  soft: 'border-ax-line bg-ax-surface text-ax-ink hover:border-ax-violet-text',
 };
 
 export function buttonClasses(variant: ButtonVariant = 'primary', size: ButtonSize = 'md', className?: string) {

@@ -33,6 +33,8 @@ export type CursoResumen = {
   categoria: { id: string; nombre: string; activo: boolean } | null
   /** Grupos del curso (cualquier estado). null = no se pudo contar. */
   grupos: number | null
+  /** Portada (migración portadas_cursos_v5); null si no tiene o si aún no existe la columna. */
+  portada_url?: string | null
   tieneCondiciones: boolean | null
 }
 
@@ -76,7 +78,7 @@ function contarPor<T extends Record<string, unknown>>(filas: T[] | null, clave: 
 /** Listado: 4 consultas en total (no una por curso). */
 export async function obtenerCursos(institucionId: string): Promise<CursoResumen[]> {
   const supabase = await createClient()
-  const [cursos, categorias, grupos, condiciones] = await Promise.all([
+  const [cursos, categorias, grupos, condiciones, portadas] = await Promise.all([
     supabase
       .from("cursos")
       .select(COLUMNAS_CURSO)
@@ -98,6 +100,12 @@ export async function obtenerCursos(institucionId: string): Promise<CursoResumen
       .select("curso_id")
       .eq("institucion_id", institucionId)
       .overrideTypes<{ curso_id: string }[], { merge: false }>(),
+    // Si la columna aún no existe (42703) se ignora: el listado no depende de ella.
+    supabase
+      .from("cursos")
+      .select("id, portada_url")
+      .eq("institucion_id", institucionId)
+      .overrideTypes<{ id: string; portada_url: string | null }[], { merge: false }>(),
   ])
 
   if (cursos.error) {
@@ -111,6 +119,7 @@ export async function obtenerCursos(institucionId: string): Promise<CursoResumen
   const porCategoria = new Map((categorias.data ?? []).map((c) => [c.id, c]))
   const gruposPorCurso = contarPor(grupos.data, "curso_id")
   const conCondiciones = new Set((condiciones.data ?? []).map((c) => c.curso_id))
+  const portadaPorCurso = new Map((portadas.error ? [] : (portadas.data ?? [])).map((p) => [p.id, p.portada_url]))
 
   return (cursos.data ?? []).map((fila) => {
     const { categoria_id, ...curso } = normalizarCurso(fila)
@@ -119,6 +128,7 @@ export async function obtenerCursos(institucionId: string): Promise<CursoResumen
       categoria: porCategoria.get(categoria_id) ?? null,
       grupos: grupos.error ? null : (gruposPorCurso.get(curso.id) ?? 0),
       tieneCondiciones: condiciones.error ? null : conCondiciones.has(curso.id),
+      portada_url: portadaPorCurso.get(curso.id) ?? null,
     }
   })
 }

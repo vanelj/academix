@@ -74,7 +74,18 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Información general</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle>Información general</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/admin/cursos/${curso.id}/asistente`} className={buttonVariants({ size: "sm" })}>
+                    Abrir el asistente
+                  </Link>
+                  {/* Formulario clásico de una sola página (se conserva como edición rápida). */}
+                  <Link href={`/admin/cursos/${curso.id}/editar`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                    Edición rápida
+                  </Link>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <dl className="grid gap-4 sm:grid-cols-2">
@@ -138,7 +149,7 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
                 )}
               </dl>
               {!c && (
-                <Link href={`/admin/cursos/${curso.id}/editar`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4")}>
+                <Link href={`/admin/cursos/${curso.id}/asistente?paso=3`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4")}>
                   Configurar condiciones
                 </Link>
               )}
@@ -213,7 +224,7 @@ export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id
                   Ver grupos ({curso.grupos ?? 0})
                 </Link>
                 {curso.estado !== "desactivado" && (
-                  <Link href={`/admin/grupos/nuevo?curso=${curso.id}`} className={buttonVariants({ size: "sm" })}>
+                  <Link href={`/admin/cursos/${curso.id}/asistente?paso=4`} className={buttonVariants({ size: "sm" })}>
                     Nuevo grupo
                   </Link>
                 )}

@@ -91,9 +91,9 @@ export function CursoAcciones({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Link href={`/admin/cursos/${cursoId}/editar`} className={buttonVariants({ variant: "outline" })}>
+        <Link href={`/admin/cursos/${cursoId}/asistente`} className={buttonVariants({ variant: "outline" })}>
           <Pencil aria-hidden />
-          Editar
+          {estado === "borrador" ? "Continuar configuración" : "Editar"}
         </Link>
         {estado !== "publicado" && (
           <Button onClick={() => ejecutar("publicar")} disabled={ocupado || !puedePublicar}>

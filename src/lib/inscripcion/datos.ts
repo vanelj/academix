@@ -57,12 +57,16 @@ export type DetalleCurso = {
   id: string
   nombre: string
   descripcion: string | null
+  /** Portada oficial del curso (migración portadas_cursos_v5); null = sin portada. */
+  portada_url: string | null
   precio: number
   categoria: string
   institucion_id: string
   institucion: string
   logo_url: string | null
   grupos: GrupoOferta[]
+  /** true si la consulta de grupos falló: no equivale a «no hay grupos». */
+  gruposNoDisponibles: boolean
   condiciones: CondicionesOferta | null
   politicas: PoliticasOferta | null
   certificacion: CertificacionOferta | null
@@ -85,7 +89,7 @@ export async function obtenerDetalleCurso(cursoId: string): Promise<DetalleCurso
   }
   if (!curso) return null
 
-  const [grupos, condiciones, politicas, certificacion] = await Promise.all([
+  const [grupos, condiciones, politicas, certificacion, portada] = await Promise.all([
     supabase.from("oferta_grupos").select("id, codigo, fecha_inicio, fecha_fin, estado, vacantes_disponibles, docente").eq("curso_id", cursoId).order("fecha_inicio")
       .overrideTypes<Omit<GrupoOferta, "horarios">[], { merge: false }>(),
     supabase.from("oferta_condiciones")
@@ -98,6 +102,9 @@ export async function obtenerDetalleCurso(cursoId: string): Promise<DetalleCurso
     // Si la vista aún no existe (migración pendiente) se ignora: el curso se muestra sin esta sección.
     supabase.from("oferta_certificacion").select("modalidad, importe, nota_minima, horas_academicas, requisitos_adicionales").eq("curso_id", cursoId).maybeSingle()
       .overrideTypes<CertificacionOferta, { merge: false }>(),
+    // Si la vista aún no expone la portada (migración pendiente) se ignora.
+    supabase.from("oferta_cursos").select("portada_url").eq("id", cursoId).maybeSingle()
+      .overrideTypes<{ portada_url: string | null }, { merge: false }>(),
   ])
   for (const [k, r] of [["grupos", grupos], ["condiciones", condiciones], ["politicas", politicas]] as const) {
     if (r.error) console.error(`[inscripcion] ${k}`, r.error.code, r.error.message)
@@ -113,6 +120,8 @@ export async function obtenerDetalleCurso(cursoId: string): Promise<DetalleCurso
   return {
     ...curso,
     precio: num(curso.precio),
+    portada_url: portada.error ? null : (portada.data?.portada_url ?? null),
+    gruposNoDisponibles: Boolean(grupos.error),
     grupos: (grupos.data ?? []).map((g) => ({
       ...g,
       horarios: (horarios ?? [])

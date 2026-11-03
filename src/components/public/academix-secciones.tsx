@@ -12,11 +12,11 @@ import { ButtonLink } from "@/academix/components/ui/Button"
 import { useAcademixUI } from "@/academix/context/AcademixUIProvider"
 import type { CourseSummary, FilterOption, LoadStatus } from "@/academix/types"
 
-// Secciones del kit Creative Tech conectadas a Link, Image y las rutas reales del
+// Secciones del kit Academix Vibrant conectadas a Link, Image y las rutas reales del
 // proveedor. Permiten que las páginas (Server Components) compongan la vista y
 // envuelvan solo la parte con datos en <Suspense>, sin ocultar el resto.
 
-export function AxCabecera({ activa }: { activa: PublicSection }) {
+export function AxCabecera({ activa }: { activa?: PublicSection }) {
   const { Link, routes } = useAcademixUI()
   return <SiteHeader routes={routes} active={activa} linkComponent={Link} />
 }
@@ -26,17 +26,19 @@ export function AxPie() {
   return <SiteFooter routes={routes} linkComponent={Link} />
 }
 
-// Fotografía provisional: solo para pruebas locales hasta verificar su licencia.
-const FOTO_HERO = {
-  src: "/academix/hero-estudiantes-biblioteca.jpg",
-  alt: "Estudiantes trabajando con sus laptops en una biblioteca",
+// Fotografías provisionales del kit Vibrant: solo para pruebas locales hasta
+// verificar su licencia (ver docs/integracion-vibrant.md).
+const FOTOS_HERO = {
+  arco: { src: "/academix/estudiante-en-casa.jpg", alt: "Estudiante con audífonos toma apuntes frente a su laptop" },
+  circulo: { src: "/academix/estudiantes-biblioteca.jpg", alt: "Estudiante trabajando con su laptop en una biblioteca" },
 }
 
 export function InicioHero() {
   const { Link, Image, routes } = useAcademixUI()
   return (
     <HomeHero
-      image={FOTO_HERO}
+      archImage={FOTOS_HERO.arco}
+      circleImage={FOTOS_HERO.circulo}
       coursesHref={routes.courses}
       registerHref={routes.registerInstitution}
       linkComponent={Link}
@@ -74,7 +76,7 @@ export function InicioCatalogo({
       emptyAction={
         <ButtonLink
           href={routes.registerInstitution}
-          variant="ghost"
+          variant="outline"
           size="sm"
           // En móvil el texto no cabe en una línea: se permite el salto (sin desbordar el panel).
           className="max-[520px]:whitespace-normal max-[520px]:py-2.5 max-[520px]:text-center max-[520px]:leading-snug"

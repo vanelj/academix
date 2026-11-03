@@ -30,3 +30,23 @@ export function getInitials(name: string, shortName?: string | null): string {
   const words = name.split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]$/.test(w));
   return (words.slice(0, 2).map((w) => w[0]).join('') || name.slice(0, 2)).toUpperCase();
 }
+
+/** Color del punto de cada categoría (chips y filtros, estilo Vibrant). */
+export function getCategoryDotColor(visual: CategoryVisual | 'all'): string {
+  switch (visual) {
+    case 'tecnologia':
+      return '#6C3BF5';
+    case 'idiomas':
+      return '#FF6B5B';
+    case 'gestion':
+      return '#2EC4A0';
+    case 'diseno':
+      return '#FFC93C';
+    case 'educacion':
+      return '#2EC4A0';
+    case 'all':
+      return '#8A82B8';
+    default:
+      return '#8A82B8';
+  }
+}

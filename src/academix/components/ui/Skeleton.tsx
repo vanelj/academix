@@ -3,8 +3,8 @@ import { cn } from '../../lib/cn';
 
 /**
  * Bloque de carga con brillo animado.
- * El radio se pasa con `radius` (no con utilidades rounded-*) para no
- * competir con el radio por defecto definido en academix.css.
+ * El radio va en `radius` (no con utilidades rounded-*), para no competir
+ * con el radio por defecto de academix.css.
  */
 export function Skeleton({ className, radius, style }: { className?: string; radius?: number; style?: CSSProperties }) {
   return (

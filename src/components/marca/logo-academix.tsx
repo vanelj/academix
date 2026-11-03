@@ -30,3 +30,6 @@ export function LogoAcademix({ className }: { className?: string }) {
 }
 
 export const NOMBRE_MARCA = "Academix"
+
+/** Denominación descriptiva oficial de la plataforma. */
+export const DENOMINACION = "Plataforma de Oferta y Gestión de Cursos Virtuales"

@@ -6,32 +6,33 @@ export interface StatePanelProps {
   title: string;
   description?: string;
   action?: ReactNode;
-  tone?: 'blue' | 'violet' | 'error';
+  /** yellow = vacío · violet = sin resultados · coral = error */
+  tone?: 'yellow' | 'violet' | 'coral';
   /** Usa role="alert" (errores). */
   alert?: boolean;
 }
 
-/** Panel punteado para estados vacíos, sin resultados y error. */
-export function StatePanel({ icon, title, description, action, tone = 'blue', alert }: StatePanelProps) {
+const tones = {
+  yellow: { icon: 'bg-ax-yellow text-ax-indigo', blob: 'bg-ax-soft-yellow -left-[30px] -top-[30px]' },
+  violet: { icon: 'bg-ax-violet text-white', blob: 'bg-ax-soft-violet -right-[30px] -top-[30px]' },
+  coral: { icon: 'bg-ax-coral text-ax-indigo', blob: 'bg-ax-soft-coral -bottom-[30px] -left-[30px]' },
+};
+
+/** Tarjeta para estados vacíos, sin resultados y error. */
+export function StatePanel({ icon, title, description, action, tone = 'yellow', alert }: StatePanelProps) {
+  const t = tones[tone];
   return (
     <div
       role={alert ? 'alert' : undefined}
-      className="flex flex-col items-center gap-3.5 rounded-[18px] border border-dashed border-ax-line bg-ax-surface px-6 py-16 text-center"
+      className="relative flex flex-col items-center gap-3.5 overflow-hidden rounded-[28px] bg-ax-surface px-6 py-14 text-center shadow-ax"
     >
-      <span
-        aria-hidden
-        className={cn(
-          'flex h-[60px] w-[60px] items-center justify-center rounded-2xl',
-          tone === 'blue' && 'bg-ax-soft-blue text-ax-blue-text',
-          tone === 'violet' && 'bg-ax-soft-violet text-ax-violet-text',
-          tone === 'error' && 'bg-[#FDE8EC] text-[#B4233C]',
-        )}
-      >
+      <div aria-hidden className={cn('absolute h-[110px] w-[110px] rounded-full', t.blob)} />
+      <span aria-hidden className={cn('relative flex h-[76px] w-[76px] items-center justify-center rounded-full', t.icon)}>
         {icon}
       </span>
-      <h2 className="font-ax-display text-[22px] font-bold leading-[1.08] tracking-[-0.03em] text-balance">{title}</h2>
-      {description ? <p className="max-w-[440px] text-ax-muted text-pretty">{description}</p> : null}
-      {action ? <div className="mt-1">{action}</div> : null}
+      <h2 className="relative font-ax-display text-[26px] font-extrabold leading-[1.06] tracking-[-0.03em] text-balance">{title}</h2>
+      {description ? <p className="relative max-w-[440px] text-ax-muted text-pretty">{description}</p> : null}
+      {action ? <div className="relative">{action}</div> : null}
     </div>
   );
 }

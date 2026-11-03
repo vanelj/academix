@@ -1,33 +1,41 @@
 'use client';
 
 import { CatalogPreview, type CatalogPreviewProps } from '../components/home/CatalogPreview';
-import { HomeHero } from '../components/home/HomeHero';
-import { InstitutionalSection } from '../components/home/InstitutionalSection';
+import { HomeHero, type HeroImage } from '../components/home/HomeHero';
+import { InstitutionalSection, type InstitutionalFeature } from '../components/home/InstitutionalSection';
 import { SiteFooter } from '../components/layout/SiteFooter';
 import { SiteHeader } from '../components/layout/SiteHeader';
 import { useAcademixUI } from '../context/AcademixUIProvider';
 import type { CourseSummary, FilterOption, LoadStatus } from '../types';
 
+export const defaultHeroImages: { arch: HeroImage; circle: HeroImage } = {
+  arch: { src: '/academix/estudiante-en-casa.jpg', alt: 'Estudiante con audífonos toma apuntes frente a su laptop' },
+  circle: { src: '/academix/estudiantes-biblioteca.jpg', alt: 'Estudiante trabajando con su laptop en una biblioteca' },
+};
+
 export interface HomeViewProps {
   featuredCourses: CourseSummary[];
   featuredStatus?: LoadStatus;
   categories?: FilterOption[];
-  heroImage?: { src: string; alt: string };
-  /** Nota bajo el catálogo (p. ej. aviso de datos de demostración). */
+  /** Fotos de la portada: arco grande y círculo pequeño. */
+  heroImages?: { arch: HeroImage; circle: HeroImage };
+  /** Etiqueta junto a «Cursos para empezar» (p. ej. «Datos de demostración»). */
   catalogFootnote?: string;
   onCategoryChange?: CatalogPreviewProps['onCategoryChange'];
   selectedCategory?: string;
+  institutionalFeatures?: InstitutionalFeature[];
 }
 
-/** Página de Inicio completa (header + 3 secciones + footer). */
+/** Página de Inicio completa (header + portada + catálogo + franja institucional + footer). */
 export function HomeView({
   featuredCourses,
   featuredStatus = 'ready',
   categories,
-  heroImage = { src: '/academix/hero-estudiantes-biblioteca.jpg', alt: 'Estudiantes trabajando con sus laptops en una biblioteca' },
+  heroImages = defaultHeroImages,
   catalogFootnote,
   onCategoryChange,
   selectedCategory,
+  institutionalFeatures,
 }: HomeViewProps) {
   const { Link, Image, routes } = useAcademixUI();
   return (
@@ -35,7 +43,8 @@ export function HomeView({
       <SiteHeader routes={routes} active="home" linkComponent={Link} />
       <main>
         <HomeHero
-          image={heroImage}
+          archImage={heroImages.arch}
+          circleImage={heroImages.circle}
           coursesHref={routes.courses}
           registerHref={routes.registerInstitution}
           linkComponent={Link}
@@ -52,7 +61,7 @@ export function HomeView({
           linkComponent={Link}
           imageComponent={Image}
         />
-        <InstitutionalSection registerHref={routes.registerInstitution} linkComponent={Link} />
+        <InstitutionalSection registerHref={routes.registerInstitution} features={institutionalFeatures} linkComponent={Link} />
       </main>
       <SiteFooter routes={routes} linkComponent={Link} />
     </>

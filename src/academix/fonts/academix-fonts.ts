@@ -1,21 +1,19 @@
 /**
- * Fuentes de Academix servidas localmente con next/font/local
- * (no dependen de Google Fonts en tiempo de compilación).
+ * Fuentes de Academix · Vibrant servidas localmente con next/font/local.
  * Licencia: SIL Open Font License 1.1 (ver ./licenses).
  *
- * Uso (en un Server Component de layout):
  *   import { academixFontVariables } from '@/academix/fonts/academix-fonts';
  *   <PublicShell className={academixFontVariables}>…</PublicShell>
  *
- * Alternativa con Google: ver docs/INTEGRACION.md (next/font/google).
+ * Alternativa con Google Fonts: ver docs/INTEGRACION.md §4.
  */
 import localFont from 'next/font/local';
 
 export const fontDisplay = localFont({
   src: [
-    { path: './space-grotesk-latin-500-normal.woff2', weight: '500', style: 'normal' },
-    { path: './space-grotesk-latin-600-normal.woff2', weight: '600', style: 'normal' },
-    { path: './space-grotesk-latin-700-normal.woff2', weight: '700', style: 'normal' },
+    { path: './bricolage-grotesque-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: './bricolage-grotesque-latin-700-normal.woff2', weight: '700', style: 'normal' },
+    { path: './bricolage-grotesque-latin-800-normal.woff2', weight: '800', style: 'normal' },
   ],
   variable: '--ax-font-display',
   display: 'swap',
@@ -24,22 +22,15 @@ export const fontDisplay = localFont({
 
 export const fontBody = localFont({
   src: [
-    { path: './ibm-plex-sans-latin-400-normal.woff2', weight: '400', style: 'normal' },
-    { path: './ibm-plex-sans-latin-500-normal.woff2', weight: '500', style: 'normal' },
-    { path: './ibm-plex-sans-latin-600-normal.woff2', weight: '600', style: 'normal' },
-    { path: './ibm-plex-sans-latin-700-normal.woff2', weight: '700', style: 'normal' },
+    { path: './dm-sans-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: './dm-sans-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: './dm-sans-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: './dm-sans-latin-700-normal.woff2', weight: '700', style: 'normal' },
   ],
   variable: '--ax-font-body',
   display: 'swap',
   fallback: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
 });
 
-export const fontMono = localFont({
-  src: [{ path: './ibm-plex-mono-latin-500-normal.woff2', weight: '500', style: 'normal' }],
-  variable: '--ax-font-mono',
-  display: 'swap',
-  fallback: ['ui-monospace', 'monospace'],
-});
-
-/** Clases que definen las tres variables de fuente. */
-export const academixFontVariables = `${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable}`;
+/** Clases que definen las variables de fuente. */
+export const academixFontVariables = `${fontDisplay.variable} ${fontBody.variable}`;

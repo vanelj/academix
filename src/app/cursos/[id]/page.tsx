@@ -3,9 +3,11 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Building2, CalendarDays, Clock, UserRound } from "lucide-react"
 
+import { CategoryIcon } from "@/academix/components/ui/CategoryIcon"
+import { getCategoryVisual } from "@/academix/lib/visuals"
 import { InscripcionGrupo, type EstadoSesionInscripcion } from "@/components/public/inscripcion-grupo"
-import { PublicFooter } from "@/components/public/public-footer"
-import { PublicHeader } from "@/components/public/public-header"
+import { AcademixPublico } from "@/components/public/academix-publico"
+import { AxCabecera, AxPie } from "@/components/public/academix-secciones"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +38,7 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
     ctx.estado === "sin_sesion" ? "sin_sesion" : ctx.estado === "sin_perfil" ? "sin_perfil" : ctx.rolActivo === "estudiante" ? "estudiante" : "no_estudiante"
   const c = curso.condiciones
   const politicas = curso.politicas
+  const categoriaVisual = getCategoryVisual({ slug: "", name: curso.categoria })
   const textosPoliticas = politicas
     ? ([
         ["Matrícula", politicas.texto_matricula],
@@ -47,8 +50,9 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
     : []
 
   return (
-    <div className="flex min-h-svh flex-1 flex-col bg-background">
-      <PublicHeader />
+    <AcademixPublico>
+    <div className="flex min-h-svh flex-1 flex-col">
+      <AxCabecera activa="courses" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <Link href="/cursos" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2.5 mb-4")}>
           <ArrowLeft aria-hidden />
@@ -58,6 +62,18 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
           <div className="space-y-6">
             <div className="space-y-3">
+              {curso.portada_url ? (
+                // Portada oficial del curso (bucket público de Supabase): la misma que en el catálogo.
+                <div className="relative mb-2 aspect-video w-full overflow-hidden rounded-3xl bg-muted ring-1 ring-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={curso.portada_url} alt={`Portada del curso ${curso.nombre}`} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                // Mantiene la portada generada por categoría para los cursos sin imagen o antes de V5.
+                <div aria-hidden className={`ax-cover ax-cover--${categoriaVisual} mb-2 aspect-video w-full rounded-3xl`}>
+                  <span className="ax-cover-icon"><CategoryIcon visual={categoriaVisual} size={30} /></span>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{curso.categoria}</Badge>
                 <Badge variant="outline" className="text-muted-foreground">Virtual</Badge>
@@ -72,7 +88,12 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
 
             <section aria-labelledby="grupos-titulo" className="space-y-3">
               <h2 id="grupos-titulo" className="text-xl font-semibold">Grupos</h2>
-              {curso.grupos.length === 0 ? (
+              {curso.gruposNoDisponibles ? (
+                // Un error al consultar los grupos no debe presentarse como «no hay grupos».
+                <p role="alert" className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No pudimos cargar los grupos de este curso en este momento. Inténtalo de nuevo más tarde.
+                </p>
+              ) : curso.grupos.length === 0 ? (
                 <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                   Por ahora no hay grupos programados ni con inscripciones abiertas.
                 </p>
@@ -202,8 +223,9 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
           </aside>
         </div>
       </main>
-      <PublicFooter />
+      <AxPie />
     </div>
+    </AcademixPublico>
   )
 }
 

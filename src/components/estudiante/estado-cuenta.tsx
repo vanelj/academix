@@ -62,7 +62,7 @@ export function EstadoCuentaVista({ cuenta }: { cuenta: EstadoCuenta }) {
   const cuotaAbierta = new Set(cuenta.cuotas.filter((q) => q.matriculaActiva && (q.estado === "pendiente" || q.estado === "parcial") && !q.enRevision).map((q) => q.id))
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
         <Indicador etiqueta="Por pagar" valor={s.format(porPagar)} tono={porPagar > 0 ? "warning" : undefined} detalle={vencidas ? `${vencidas} vencida${vencidas === 1 ? "" : "s"}` : undefined} />
         <Indicador etiqueta="Comprobantes en revisión" valor={String(enRevision.length)} detalle={enRevision.length ? s.format(enRevision.reduce((t, p) => t + p.monto, 0)) : undefined} />
@@ -138,7 +138,7 @@ export function EstadoCuentaVista({ cuenta }: { cuenta: EstadoCuenta }) {
                       {q0.matriculaActiva ? `Saldo: ${s.format(saldo)}` : "Matrícula anulada (la anulación no implica devolución)"}
                     </p>
                   </div>
-                  <div className="overflow-x-auto rounded-lg border">
+                  <div role="region" aria-label="Cronograma de cuotas" tabIndex={0} className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
                     <table className="w-full min-w-[560px] text-sm">
                       <thead className="bg-muted/50 text-xs text-muted-foreground">
                         <tr>
@@ -200,7 +200,7 @@ export function EstadoCuentaVista({ cuenta }: { cuenta: EstadoCuenta }) {
                         <p className="font-medium">{p.concepto}{p.curso ? ` · ${p.curso}` : ""}</p>
                         <EstadoPagoBadge estado={p.estado} />
                       </div>
-                      <p className="text-muted-foreground">
+                      <p className="min-w-0 break-words text-muted-foreground">
                         {[p.institucion, p.metodo, p.referencia && `Op. ${p.referencia}`, formatoFechaHoraSolicitud.format(new Date(p.fecha))].filter(Boolean).join(" · ")}
                       </p>
                       {p.estado === "rechazado" && (

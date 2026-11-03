@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description: "Plataforma de Oferta y Gestión de Cursos Virtuales",
 }
 
-// Página principal pública (diseño Creative Tech): no requiere sesión ni usa el
+// Página principal pública (diseño Academix Vibrant): no requiere sesión ni usa el
 // layout privado de /admin. Solo la sección con datos espera a Supabase.
 export default function HomePage() {
   return (

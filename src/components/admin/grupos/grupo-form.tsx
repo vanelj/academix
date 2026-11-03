@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm, useWatch, type Control, type FieldPath } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,6 +13,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { crearGrupo, editarGrupo } from "@/lib/grupos/acciones"
+import type { GuardadorAsistente, RegistrarGuardadorAsistente, ResultadoGuardadoAsistente } from "@/lib/cursos/asistente-logica"
 import type { OpcionCurso, OpcionDocente } from "@/lib/grupos/datos"
 import { notificar } from "@/lib/notificaciones"
 import { grupoSchema, type EstadoGrupo, type GrupoValues } from "@/lib/validations/grupo"
@@ -26,6 +27,9 @@ export function GrupoForm({
   cursos,
   docentes,
   estado,
+  bloquearCurso,
+  onGuardado,
+  onRegistrarGuardado,
 }: {
   /** Sin id = creación. */
   grupoId?: string
@@ -34,6 +38,12 @@ export function GrupoForm({
   valoresIniciales: GrupoValues
   cursos: OpcionCurso[]
   docentes: OpcionDocente[]
+  /** El curso viene fijado (asistente de cursos): no se puede cambiar. */
+  bloquearCurso?: boolean
+  /** Si se indica, se llama al guardar en lugar de abrir la ficha del grupo. */
+  onGuardado?: (id: string) => void
+  /** Permite al asistente esperar el guardado de este formulario antes de avanzar. */
+  onRegistrarGuardado?: RegistrarGuardadorAsistente
 }) {
   const router = useRouter()
   const editando = Boolean(grupoId)
@@ -52,37 +62,67 @@ export function GrupoForm({
   const cambioDocenteVigente =
     editando && (estado === "abierto" || estado === "en_curso") && docenteElegido !== valoresIniciales.docente_id
 
-  async function onSubmit(valores: GrupoValues) {
-    if (bloqueo.current) return
+  const persistir = useCallback(async (valores: GrupoValues, mostrarAvisos: boolean): Promise<ResultadoGuardadoAsistente> => {
+    if (bloqueo.current) return { ok: false, mensaje: "El guardado del grupo sigue en curso. Espera a que termine." }
     if (editando && !form.formState.isDirty) {
-      notificar.info("No hay cambios para guardar.")
-      return
+      if (mostrarAvisos) notificar.info("No hay cambios para guardar.")
+      return { ok: true, guardado: false }
     }
     bloqueo.current = true
     setGuardando(true)
-    const operacion = notificar.operacion(editando ? "Guardando cambios…" : "Creando grupo…")
+    const operacion = mostrarAvisos ? notificar.operacion(editando ? "Guardando cambios…" : "Creando grupo…") : null
     try {
       const r = grupoId ? await editarGrupo(grupoId, valores) : await crearGrupo(valores)
       if (r.ok) {
         form.reset(valores)
-        if (r.aviso) operacion.advertencia("Los cambios se guardaron correctamente", { descripcion: r.aviso })
-        else
-          operacion.exito(editando ? "Los cambios se guardaron correctamente" : "Grupo creado correctamente", {
-            descripcion: editando ? undefined : "Agrega sus horarios y ábrelo a inscripciones cuando esté listo.",
-          })
-        router.push(`/admin/grupos/${r.id}`)
+        if (operacion) {
+          if (r.aviso) operacion.advertencia("Los cambios se guardaron correctamente", { descripcion: r.aviso })
+          else
+            operacion.exito(editando ? "Los cambios se guardaron correctamente" : "Grupo creado correctamente", {
+              descripcion: editando ? undefined : "Agrega sus horarios y ábrelo a inscripciones cuando esté listo.",
+            })
+        }
+        if (onGuardado) onGuardado(r.id)
+        else router.push(`/admin/grupos/${r.id}`)
         router.refresh()
+        return { ok: true, guardado: true, avisos: r.aviso ? [r.aviso] : undefined }
       } else {
         if (r.campo && r.campo in valores) form.setError(r.campo as FieldPath<GrupoValues>, { message: r.mensaje }, { shouldFocus: true })
-        const avisar = r.gravedad === "advertencia" ? operacion.advertencia : operacion.error
-        avisar("No se pudo guardar el grupo", { descripcion: r.mensaje })
+        if (operacion) {
+          const avisar = r.gravedad === "advertencia" ? operacion.advertencia : operacion.error
+          avisar("No se pudo guardar el grupo", { descripcion: r.mensaje })
+        }
+        return { ok: false, mensaje: r.mensaje }
       }
     } catch {
-      operacion.error("No se pudo guardar el grupo", { descripcion: "Revisa tu conexión e inténtalo de nuevo." })
+      const mensaje = "Revisa tu conexión e inténtalo de nuevo."
+      operacion?.error("No se pudo guardar el grupo", { descripcion: mensaje })
+      return { ok: false, mensaje }
     } finally {
       bloqueo.current = false
       setGuardando(false)
     }
+  }, [editando, form, grupoId, onGuardado, router])
+
+  const guardarDesdeAsistente = useCallback<GuardadorAsistente>(async () => {
+    let resultado: ResultadoGuardadoAsistente = { ok: false, mensaje: "Corrige los campos indicados." }
+    await form.handleSubmit(
+      async (valores) => { resultado = await persistir(valores, false) },
+      () => { resultado = { ok: false, mensaje: "Corrige los campos indicados en este grupo." } },
+    )()
+    return resultado
+  }, [form, persistir])
+
+  const claveGuardado = `grupo:${grupoId ?? "nuevo"}`
+  const descripcionGuardado = grupoId ? `Grupo ${valoresIniciales.codigo}` : "Nuevo grupo"
+  useEffect(() => {
+    if (!onRegistrarGuardado) return
+    onRegistrarGuardado(claveGuardado, descripcionGuardado, guardarDesdeAsistente, !grupoId || isDirty)
+    return () => onRegistrarGuardado(claveGuardado, descripcionGuardado, null, false)
+  }, [claveGuardado, descripcionGuardado, guardarDesdeAsistente, grupoId, isDirty, onRegistrarGuardado])
+
+  async function onSubmit(valores: GrupoValues) {
+    await persistir(valores, true)
   }
 
   return (
@@ -106,7 +146,7 @@ export function GrupoForm({
                     items={cursos.map((c) => ({ value: c.id, label: `${c.nombre}${ETIQUETA_CURSO[c.estado] ?? ""}` }))}
                     value={field.value || null}
                     onValueChange={(v) => field.onChange(v ? String(v) : "")}
-                    disabled={guardando || editando}
+                    disabled={guardando || editando || bloquearCurso}
                   >
                     <SelectTrigger id="grupo-curso" className="w-full" aria-invalid={fieldState.invalid} onBlur={field.onBlur}>
                       <SelectValue placeholder="Selecciona un curso" />

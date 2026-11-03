@@ -9,7 +9,7 @@ export interface InstitutionsCtaProps {
   linkComponent?: LinkComponent;
 }
 
-/** Franja oscura final del directorio. */
+/** Franja índigo final del directorio. */
 export function InstitutionsCta({
   href,
   title = '¿Tu institución aún no está en Academix?',
@@ -17,18 +17,18 @@ export function InstitutionsCta({
   linkComponent = AnchorLink,
 }: InstitutionsCtaProps) {
   return (
-    <section className="px-4 pb-20">
-      <div className="relative mx-auto flex max-w-[1272px] flex-wrap items-center justify-between gap-5 overflow-hidden rounded-[26px] bg-ax-night px-[clamp(22px,4vw,52px)] py-[clamp(28px,4vw,44px)] text-[#E9ECFA]">
-        <div aria-hidden className="ax-band-grid" />
-        <div aria-hidden className="ax-band-glow -top-[80%] right-[-10%] h-[220%] w-1/2" style={{ background: 'radial-gradient(closest-side, rgba(58,91,255,.38), transparent)' }} />
-        <div className="relative flex max-w-[620px] flex-col gap-2">
-          <span className="font-ax-mono text-[13px] tracking-[0.02em] text-ax-periwinkle">para instituciones</span>
-          <h2 className="font-ax-display text-[clamp(24px,2.6vw,34px)] font-bold leading-[1.08] tracking-[-0.03em] text-white text-balance">
+    <section className="px-5 pb-20">
+      <div className="relative mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-[22px] overflow-hidden rounded-[36px] bg-ax-band px-[clamp(22px,4vw,56px)] py-[clamp(28px,4vw,48px)]">
+        <div aria-hidden className="absolute -bottom-[70px] -right-[50px] h-[180px] w-[180px] rounded-full border-[26px] border-ax-yellow opacity-90" />
+        <div aria-hidden className="absolute -top-5 left-[46%] h-[60px] w-[60px] rounded-full bg-ax-coral" />
+        <div className="relative flex max-w-[620px] flex-col gap-2.5 text-white">
+          <span className="text-sm font-bold uppercase tracking-[0.08em] text-ax-yellow">Para instituciones</span>
+          <h2 className="font-ax-display text-[clamp(26px,3vw,38px)] font-extrabold leading-[1.04] tracking-[-0.03em] text-white text-balance">
             {title}
           </h2>
-          <p className="text-ax-band-text">{description}</p>
+          <p className="text-[17px] text-ax-band-text">{description}</p>
         </div>
-        <ButtonLink href={href} linkComponent={linkComponent} className="relative">
+        <ButtonLink href={href} variant="yellow" className="relative" linkComponent={linkComponent}>
           Registrar institución
         </ButtonLink>
       </div>

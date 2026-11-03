@@ -20,9 +20,10 @@ import {
 const formatoPrecio = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" })
 
 /**
- * Convierte una fila de la vista pública oferta_cursos al tipo del kit Creative Tech.
- * oferta_cursos no tiene slug ni portada: la ficha se enlaza por id y se dibuja
- * la portada generada de la categoría. La categoría se identifica por su id,
+ * Convierte una fila de la vista pública oferta_cursos al tipo del kit Academix Vibrant.
+ * oferta_cursos no tiene slug: la ficha se enlaza por id. Si el curso no tiene
+ * portada_url (o falta la migración portadas_cursos_v5) se dibuja la portada
+ * generada de la categoría. La categoría se identifica por su id,
  * el mismo valor que usa el filtro ?categoria= del catálogo.
  */
 export function aCursoAcademix(c: OfertaCurso): CourseSummary {
@@ -38,6 +39,7 @@ export function aCursoAcademix(c: OfertaCurso): CourseSummary {
       visual: getCategoryVisual({ slug: "", name: c.categoria }),
     },
     institution: { id: c.institucion_id, name: c.institucion, logoUrl: c.logo_url },
+    coverUrl: c.portada_url ?? null,
     price: Number(c.precio),
     priceLabel: formatoPrecio.format(Number(c.precio)),
   }

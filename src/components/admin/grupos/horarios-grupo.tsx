@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,12 +22,14 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { eliminarHorario, guardarHorario } from "@/lib/grupos/acciones"
+import type { GuardadorAsistente, RegistrarGuardadorAsistente, ResultadoGuardadoAsistente } from "@/lib/cursos/asistente-logica"
 import type { Horario } from "@/lib/grupos/datos"
 import { notificar } from "@/lib/notificaciones"
 import { DIAS_SEMANA, HORARIO_INICIAL, horarioSchema, type HorarioValues } from "@/lib/validations/grupo"
+import { useProtegerCambios } from "@/components/layout/proteccion-cambios"
 
 /** Horarios semanales del grupo: listar, agregar, editar y eliminar. */
-export function HorariosGrupo({ grupoId, horarios }: { grupoId: string; horarios: Horario[] }) {
+export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuardado }: { grupoId: string; horarios: Horario[]; codigoGrupo?: string; onRegistrarGuardado?: RegistrarGuardadorAsistente }) {
   const router = useRouter()
   const [editar, setEditar] = useState<Horario | "nuevo" | null>(null)
   const [borrar, setBorrar] = useState<Horario | null>(null)
@@ -94,7 +96,14 @@ export function HorariosGrupo({ grupoId, horarios }: { grupoId: string; horarios
         )}
       </CardContent>
 
-      <HorarioDialog grupoId={grupoId} horario={editar} onCerrar={() => setEditar(null)} />
+      <HorarioDialog
+        grupoId={grupoId}
+        horario={editar}
+        onCerrar={() => setEditar(null)}
+        onRegistrarGuardado={onRegistrarGuardado}
+        claveGuardado={`horario:${grupoId}`}
+        descripcionGuardado={`Horario del grupo ${codigoGrupo ?? grupoId}`}
+      />
 
       <Dialog open={borrar !== null} onOpenChange={(v) => !v && !borrando && setBorrar(null)}>
         <DialogContent showCloseButton={false}>
@@ -117,7 +126,14 @@ export function HorariosGrupo({ grupoId, horarios }: { grupoId: string; horarios
   )
 }
 
-function HorarioDialog({ grupoId, horario, onCerrar }: { grupoId: string; horario: Horario | "nuevo" | null; onCerrar: () => void }) {
+function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveGuardado, descripcionGuardado }: {
+  grupoId: string
+  horario: Horario | "nuevo" | null
+  onCerrar: () => void
+  onRegistrarGuardado?: RegistrarGuardadorAsistente
+  claveGuardado: string
+  descripcionGuardado: string
+}) {
   const [guardando, setGuardando] = useState(false)
   return (
     <Dialog open={horario !== null} onOpenChange={(v) => !v && !guardando && onCerrar()}>
@@ -127,7 +143,16 @@ function HorarioDialog({ grupoId, horario, onCerrar }: { grupoId: string; horari
           <DialogDescription>Día y horas de la sesión semanal.</DialogDescription>
         </DialogHeader>
         {horario !== null && (
-          <FormularioHorario grupoId={grupoId} horario={horario === "nuevo" ? null : horario} guardando={guardando} setGuardando={setGuardando} alTerminar={onCerrar} />
+          <FormularioHorario
+            grupoId={grupoId}
+            horario={horario === "nuevo" ? null : horario}
+            guardando={guardando}
+            setGuardando={setGuardando}
+            alTerminar={onCerrar}
+            onRegistrarGuardado={onRegistrarGuardado}
+            claveGuardado={claveGuardado}
+            descripcionGuardado={descripcionGuardado}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -140,12 +165,18 @@ function FormularioHorario({
   guardando,
   setGuardando,
   alTerminar,
+  onRegistrarGuardado,
+  claveGuardado,
+  descripcionGuardado,
 }: {
   grupoId: string
   horario: Horario | null
   guardando: boolean
   setGuardando: (v: boolean) => void
   alTerminar: () => void
+  onRegistrarGuardado?: RegistrarGuardadorAsistente
+  claveGuardado: string
+  descripcionGuardado: string
 }) {
   const router = useRouter()
   const bloqueo = useRef(false)
@@ -156,32 +187,60 @@ function FormularioHorario({
       : HORARIO_INICIAL,
     mode: "onTouched",
   })
+  const { isDirty } = form.formState
+  useProtegerCambios(isDirty)
 
-  async function onSubmit(valores: HorarioValues) {
-    if (bloqueo.current) return
+  const persistir = useCallback(async (valores: HorarioValues, mostrarAvisos: boolean): Promise<ResultadoGuardadoAsistente> => {
+    if (bloqueo.current) return { ok: false, mensaje: "El guardado del horario sigue en curso. Espera a que termine." }
+    if (horario && !form.formState.isDirty) return { ok: true, guardado: false }
     bloqueo.current = true
     setGuardando(true)
-    const op = notificar.operacion("Guardando horario…")
+    const op = mostrarAvisos ? notificar.operacion("Guardando horario…") : null
     try {
       const r = await guardarHorario(grupoId, horario?.id ?? null, valores)
       if (r.ok) {
         // Advertencia: se guardó, pero el docente tiene otra clase a esa hora (requiere revisión).
-        if (r.aviso) op.advertencia("Horario guardado correctamente", { descripcion: r.aviso })
-        else op.exito("Horario guardado correctamente")
+        if (r.aviso) op?.advertencia("Horario guardado correctamente", { descripcion: r.aviso })
+        else op?.exito("Horario guardado correctamente")
         alTerminar()
         router.refresh()
+        return { ok: true, guardado: true, avisos: r.aviso ? [r.aviso] : undefined }
       } else {
         if (r.campo === "hora_inicio" || r.campo === "hora_fin") form.setError(r.campo, { message: r.mensaje })
         // Conflicto que impide guardar: dos sesiones del mismo grupo a la vez.
-        const avisar = r.gravedad === "advertencia" ? op.advertencia : op.error
-        avisar(r.campo ? "Se detectó un conflicto de horario" : "No se pudo guardar el horario", { descripcion: r.mensaje })
+        if (op) {
+          const avisar = r.gravedad === "advertencia" ? op.advertencia : op.error
+          avisar(r.campo ? "Se detectó un conflicto de horario" : "No se pudo guardar el horario", { descripcion: r.mensaje })
+        }
+        return { ok: false, mensaje: r.mensaje }
       }
     } catch {
-      op.error("No se pudo guardar el horario", { descripcion: "Revisa tu conexión e inténtalo de nuevo." })
+      const mensaje = "Revisa tu conexión e inténtalo de nuevo."
+      op?.error("No se pudo guardar el horario", { descripcion: mensaje })
+      return { ok: false, mensaje }
     } finally {
       bloqueo.current = false
       setGuardando(false)
     }
+  }, [alTerminar, form, grupoId, horario, router, setGuardando])
+
+  const guardarDesdeAsistente = useCallback<GuardadorAsistente>(async () => {
+    let resultado: ResultadoGuardadoAsistente = { ok: false, mensaje: "Corrige los campos indicados en el horario." }
+    await form.handleSubmit(
+      async (valores) => { resultado = await persistir(valores, false) },
+      () => { resultado = { ok: false, mensaje: "Corrige los campos indicados en este horario." } },
+    )()
+    return resultado
+  }, [form, persistir])
+
+  useEffect(() => {
+    if (!onRegistrarGuardado) return
+    onRegistrarGuardado(claveGuardado, descripcionGuardado, guardarDesdeAsistente, horario === null || isDirty)
+    return () => onRegistrarGuardado(claveGuardado, descripcionGuardado, null, false)
+  }, [claveGuardado, descripcionGuardado, guardarDesdeAsistente, horario, isDirty, onRegistrarGuardado])
+
+  async function onSubmit(valores: HorarioValues) {
+    await persistir(valores, true)
   }
 
   return (

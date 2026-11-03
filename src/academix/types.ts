@@ -1,5 +1,5 @@
 /**
- * Tipos públicos de la interfaz Academix · Creative Tech.
+ * Tipos públicos de la interfaz Academix · Vibrant.
  * Los componentes reciben estos datos por props: no contienen datos internos.
  * Mapea aquí las filas de Supabase (ver docs/INTEGRACION.md).
  */

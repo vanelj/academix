@@ -178,11 +178,16 @@ export function CursosPanel({ cursos, hayCategoriasActivas }: { cursos: CursoRes
                 {visibles.map((curso) => (
                   <TableRow key={curso.id}>
                     <TableCell className="min-w-64 pl-4 whitespace-normal">
-                      <Link href={`/admin/cursos/${curso.id}`} className="block font-medium break-words hover:underline">
-                        {curso.nombre}
-                      </Link>
-                      <Categoria curso={curso} />
-                      {curso.descripcion && <p className="line-clamp-1 text-xs text-muted-foreground">{curso.descripcion}</p>}
+                      <div className="flex items-start gap-3">
+                        <Miniatura curso={curso} />
+                        <div className="min-w-0">
+                          <Link href={`/admin/cursos/${curso.id}`} className="block font-medium break-words hover:underline">
+                            {curso.nombre}
+                          </Link>
+                          <Categoria curso={curso} />
+                          {curso.descripcion && <p className="line-clamp-1 text-xs text-muted-foreground">{curso.descripcion}</p>}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <EstadoCursoBadge estado={curso.estado} />
@@ -209,6 +214,7 @@ export function CursosPanel({ cursos, hayCategoriasActivas }: { cursos: CursoRes
                 <Card size="sm" className="h-full">
                   <CardContent className="flex h-full flex-col gap-2">
                     <div className="flex items-start gap-2">
+                      <Miniatura curso={curso} />
                       <div className="min-w-0 flex-1">
                         <Link href={`/admin/cursos/${curso.id}`} className="font-medium break-words hover:underline">
                           {curso.nombre}
@@ -262,6 +268,14 @@ function Condiciones({ valor }: { valor: boolean | null }) {
   )
 }
 
+/** Portada del curso (si tiene) en tamaño miniatura; sin portada no ocupa espacio. */
+function Miniatura({ curso }: { curso: CursoResumen }) {
+  if (!curso.portada_url) return null
+  // URL pública del bucket de portadas (dominio de Supabase).
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={curso.portada_url} alt="" className="aspect-video w-20 shrink-0 rounded-lg object-cover ring-1 ring-border" loading="lazy" />
+}
+
 function Acciones({ curso }: { curso: CursoResumen }) {
   return (
     <div className="flex items-center justify-end gap-1">
@@ -273,9 +287,10 @@ function Acciones({ curso }: { curso: CursoResumen }) {
         <Eye aria-hidden />
       </Link>
       <Link
-        href={`/admin/cursos/${curso.id}/editar`}
+        href={`/admin/cursos/${curso.id}/asistente`}
         className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-        aria-label={`Editar ${curso.nombre}`}
+        aria-label={curso.estado === "borrador" ? `Continuar configuración de ${curso.nombre}` : `Editar ${curso.nombre}`}
+        title={curso.estado === "borrador" ? "Continuar configuración" : "Editar con el asistente"}
       >
         <Pencil aria-hidden />
       </Link>

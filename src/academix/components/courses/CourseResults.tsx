@@ -7,7 +7,7 @@ import { Button, ButtonLink } from '../ui/Button';
 import { StatePanel } from '../ui/StatePanel';
 import { CourseCard, CourseCardSkeleton } from './CourseCard';
 
-export const courseGridClass = 'grid gap-[18px] grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))]';
+export const courseGridClass = 'grid gap-[22px] grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))]';
 
 export interface CourseResultsProps {
   status: LoadStatus;
@@ -23,7 +23,7 @@ export interface CourseResultsProps {
   imageComponent?: ImageComponent;
 }
 
-/** Cuadrícula de cursos con sus cuatro estados: carga, error, vacío y resultados. */
+/** Cuadrícula de cursos con sus estados: carga, error, vacío, sin resultados y resultados. */
 export function CourseResults({
   status,
   courses,
@@ -49,8 +49,8 @@ export function CourseResults({
     return (
       <StatePanel
         alert
-        tone="error"
-        icon={<TriangleAlert size={28} strokeWidth={1.8} />}
+        tone="coral"
+        icon={<TriangleAlert size={32} />}
         title="No se pudo cargar el catálogo"
         description={errorMessage}
         action={onRetry ? <Button size="sm" onClick={onRetry}>Reintentar</Button> : undefined}
@@ -61,7 +61,7 @@ export function CourseResults({
     return (
       <StatePanel
         tone="violet"
-        icon={<ZoomOut size={28} strokeWidth={1.8} />}
+        icon={<ZoomOut size={32} />}
         title="No encontramos cursos con esos filtros"
         description="Prueba con otra palabra o cambia la categoría o la institución."
         action={onClearFilters ? <Button size="sm" onClick={onClearFilters}>Limpiar filtros</Button> : undefined}
@@ -71,11 +71,12 @@ export function CourseResults({
   if (courses.length === 0) {
     return (
       <StatePanel
-        icon={<BookOpen size={28} strokeWidth={1.8} />}
+        tone="yellow"
+        icon={<BookOpen size={32} />}
         title="Aún no hay cursos publicados"
         description="Cuando las instituciones publiquen sus cursos virtuales, aparecerán en este catálogo."
         action={
-          <ButtonLink href={routes.institutions} variant="ghost" size="sm" linkComponent={linkComponent}>
+          <ButtonLink href={routes.institutions} variant="outline" size="sm" linkComponent={linkComponent}>
             Ver instituciones
           </ButtonLink>
         }

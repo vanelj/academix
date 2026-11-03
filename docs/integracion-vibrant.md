@@ -1,20 +1,39 @@
-# Integración del diseño público «Creative Tech»
+# Integración del diseño público «Academix Vibrant»
 
-Rama: `feat/creative-tech`. Afecta solo a Inicio (`/`), Cursos (`/cursos`) e Instituciones (`/instituciones`).
-El kit visual está en `src/academix/`; el envoltorio de página está en `src/components/public/academix-publico.tsx`.
+Rama: `feat/vibrant-ui`. Afecta solo a Inicio (`/`), Cursos (`/cursos`) e Instituciones (`/instituciones`).
+El kit visual está en `src/academix/` (origen: `CURSOS-VIRTUALES/academix-ui-vibrant`); el envoltorio de página
+está en `src/components/public/academix-publico.tsx`.
+
+El diseño anterior (Creative Tech) se conserva en la rama `feat/creative-tech`, etiqueta `creative-tech-v1`
+(commit `ba586d1`), y en `Desktop/respaldos/academix-creative-tech-2026-10-28.zip`.
+
+## Identidad
+
+- Nombre comercial: **Academix** (no «academix» en minúsculas).
+- Denominación: **Plataforma de Oferta y Gestión de Cursos Virtuales**.
+- Logotipo: el oficial de la plataforma (`src/components/marca/logo-academix.tsx`), también en favicon e iconos.
+  El símbolo propio del kit Vibrant no se usa; `src/academix/components/ui/Logo.tsx` solo adopta su tamaño.
 
 ## Pendientes antes de publicar
 
-### 1. Licencia de la fotografía del hero (bloqueante)
+### 1. Licencia de las fotografías (bloqueante)
 
-`public/academix/hero-estudiantes-biblioteca.jpg` llegó con el diseño sin metadatos de autoría ni licencia.
-**Solo se usa en pruebas locales.**
+Las dos fotografías llegaron con el diseño sin metadatos de autoría ni licencia.
+**Solo se usan en pruebas locales.**
+
+| Archivo | Uso | Recorte |
+|---|---|---|
+| `public/academix/estudiante-en-casa.jpg` | Arco amarillo del hero de Inicio | `66% 50%` |
+| `public/academix/estudiantes-biblioteca.jpg` | Círculo del hero de Inicio y cabecera de Cursos | `74% 40%` / `76% 40%` |
+
+`estudiantes-biblioteca.jpg` es la misma imagen que se usaba en Creative Tech (mismo hash).
+Las versiones WebP del kit no se copian: `next/image` ya sirve AVIF y WebP optimizados a partir del JPG.
 
 Antes de desplegar hay dos opciones:
 
-- acreditar la licencia de uso;
-- o sustituirla por otra fotografía con licencia adecuada. Basta con cambiar `FOTO_HERO` en
-  `src/components/public/academix-secciones.tsx`; el recorte usa `object-position: 72% 40%`.
+- acreditar la licencia de uso de ambas;
+- o sustituirlas por fotografías con licencia adecuada. Basta con cambiar `FOTOS_HERO` en
+  `src/components/public/academix-secciones.tsx` (y `introImage` en Cursos).
 
 ### 2. Carga del catálogo cuando crezca el volumen de cursos
 

@@ -1,51 +1,53 @@
 /* ==========================================================================
-   Academix · Creative Tech — variables de diseño y capa decorativa
+   Academix · Vibrant — variables de diseño y capa decorativa
    --------------------------------------------------------------------------
-   TODO lo que hay aquí está limitado al contenedor [data-academix]
-   (lo pone <PublicShell>). No toca <html>, <body> ni los paneles
-   administrativos del proyecto.
+   Todo está limitado al contenedor [data-academix] (lo pone <PublicShell>).
+   No toca <html>, <body> ni los paneles administrativos.
    Los colores de Tailwind (bg-ax-*, text-ax-*, …) leen estas variables.
    ========================================================================== */
 
 [data-academix] {
   /* Superficies y texto */
-  --ax-bg: #f5f7fc;
+  --ax-bg: #fff8ee;
   --ax-surface: #ffffff;
-  --ax-surface-2: #eef1fa;
-  --ax-ink: #0b1026;
-  --ax-muted: #4a5170;
-  --ax-line: #dfe3f0;
-  --ax-grid: rgba(58, 91, 255, 0.05);
-  --ax-skeleton: #e6e9f3;
+  --ax-surface-2: #f7eedf;
+  --ax-ink: #1b1446;
+  --ax-muted: #554d78;
+  --ax-line: #efe4d2;
+  --ax-skeleton: #f1e6d4;
 
   /* Marca */
-  --ax-blue: #3a5bff;
-  --ax-blue-hover: #2b49e6;
-  --ax-blue-text: #2f4be0;
-  --ax-violet: #8b5cf6;
-  --ax-violet-text: #6d3fe0;
-  --ax-soft-blue: #e6ebff;
-  --ax-soft-violet: #f0e9ff;
+  --ax-violet: #6c3bf5;
+  --ax-violet-hover: #5a2be0;
+  --ax-violet-text: #5a2ee0;
+  --ax-yellow: #ffc93c;
+  --ax-coral: #ff6b5b;
+  --ax-mint: #2ec4a0;
 
-  /* Fijos (no cambian con el tema): banda oscura y acentos */
-  --ax-night: #0b1026;
-  --ax-lime: #b8f35a;
-  --ax-cyan: #7fe3f2;
-  --ax-periwinkle: #93a6ff;
-  --ax-lilac: #c2a8ff;
-  --ax-lime-soft: #c7f38a;
-  --ax-band-text: #b7bfe3;
-  --ax-band-muted: #7c86b5;
+  /* Fondos suaves y su texto legible */
+  --ax-soft-violet: #eee7ff;
+  --ax-soft-yellow: #fff0c7;
+  --ax-soft-coral: #ffe2dd;
+  --ax-soft-mint: #d7f5ec;
+  --ax-coral-text: #b23a2e;
+  /* Coral para texto grande destacado (<Highlight>): 3,6:1 sobre crema (AA texto grande).
+     El coral de marca #ff6b5b queda para formas y fondos (2,65:1 no basta para texto). */
+  --ax-coral-display: #e94b3b;
+  --ax-mint-text: #0f6446;
+  --ax-yellow-text: #7a5000;
+
+  /* Banda índigo (sección institucional y llamado final) */
+  --ax-band: #1b1446;
+  --ax-band-text: #dcd6ff;
 
   /* Sombras */
-  --ax-shadow: 0 20px 44px -28px rgba(11, 16, 38, 0.38), 0 2px 6px -2px rgba(11, 16, 38, 0.06);
-  --ax-shadow-header: 0 10px 30px -22px rgba(11, 16, 38, 0.4);
-  --ax-shadow-blue: 0 10px 24px -12px rgba(58, 91, 255, 0.75);
+  --ax-shadow: 0 18px 40px -22px rgba(27, 20, 70, 0.35);
+  --ax-shadow-violet: 0 10px 0 -4px rgba(108, 59, 245, 0.28);
 
   color-scheme: light;
   background-color: var(--ax-bg);
   color: var(--ax-ink);
-  font-family: var(--ax-font-body, "IBM Plex Sans"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--ax-font-body, "DM Sans"), system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.6;
   /* clip (no hidden): hidden convertiría el contenedor en zona de desplazamiento
@@ -58,196 +60,160 @@
    Se aplica antes de hidratar, por lo que no hay parpadeo. */
 .dark [data-academix],
 [data-academix][data-theme="dark"] {
-  --ax-bg: #070b1a;
-  --ax-surface: #0f1530;
-  --ax-surface-2: #161d3f;
-  --ax-ink: #e9ecfa;
-  --ax-muted: #a0a9cc;
-  --ax-line: #222b55;
-  --ax-grid: rgba(142, 162, 255, 0.055);
-  --ax-skeleton: #1a2246;
-  --ax-blue-text: #93a6ff;
-  --ax-violet-text: #c2a8ff;
-  --ax-soft-blue: #18224f;
-  --ax-soft-violet: #231a4a;
-  --ax-shadow: 0 20px 44px -28px rgba(0, 0, 0, 0.9), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --ax-bg: #120e2b;
+  --ax-surface: #1c1740;
+  --ax-surface-2: #241e50;
+  --ax-ink: #f5f2ff;
+  --ax-muted: #bbb4dc;
+  --ax-line: #2e2760;
+  --ax-skeleton: #2a2356;
+  --ax-violet-text: #b9a3ff;
+  --ax-soft-violet: #2a2160;
+  --ax-soft-yellow: #3a2f12;
+  --ax-soft-coral: #3d1e22;
+  --ax-soft-mint: #113a32;
+  --ax-coral-text: #ffb3a8;
+  --ax-coral-display: #ff6b5b;
+  --ax-mint-text: #8ee2bf;
+  --ax-yellow-text: #ffd978;
+  --ax-band: #241d52;
+  --ax-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
 /* Foco visible accesible, solo dentro de Academix */
 [data-academix] :focus-visible {
-  outline: 2px solid var(--ax-blue-text);
+  outline: 3px solid var(--ax-violet-text);
   outline-offset: 3px;
 }
-/* Sobre la banda oscura del pie, el azul de texto del tema claro no contrasta: periwinkle. */
+/* Sobre la banda índigo del pie, el violeta del tema claro no contrasta: amarillo. */
 [data-academix] .ax-footer :focus-visible {
-  outline-color: var(--ax-periwinkle);
+  outline-color: var(--ax-yellow);
 }
 
 /* --------------------------------------------------------------------------
-   Fondo tecnológico (cuadrícula sutil que se desvanece)
-   -------------------------------------------------------------------------- */
-[data-academix] .ax-gridlayer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(var(--ax-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--ax-grid) 1px, transparent 1px);
-  background-size: 56px 56px;
-  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 60% 35%, #000 35%, transparent 100%);
-  mask-image: radial-gradient(ellipse 75% 70% at 60% 35%, #000 35%, transparent 100%);
-}
-[data-academix] .ax-gridlayer--page {
-  -webkit-mask-image: radial-gradient(ellipse 75% 90% at 70% 20%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 75% 90% at 70% 20%, #000 30%, transparent 100%);
-}
-[data-academix] .ax-glow {
-  position: absolute;
-  pointer-events: none;
-}
-[data-academix] .ax-glow--violet { background: radial-gradient(closest-side, rgba(139, 92, 246, 0.16), transparent 75%); }
-[data-academix] .ax-glow--violet-soft { background: radial-gradient(closest-side, rgba(139, 92, 246, 0.13), transparent 75%); }
-[data-academix] .ax-glow--blue { background: radial-gradient(closest-side, rgba(58, 91, 255, 0.14), transparent 75%); }
-
-/* Banda oscura (sección institucional y llamado final) */
-[data-academix] .ax-band-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(rgba(142, 162, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(142, 162, 255, 0.06) 1px, transparent 1px);
-  background-size: 56px 56px;
-}
-[data-academix] .ax-band-grid--fade {
-  -webkit-mask-image: linear-gradient(180deg, #000, transparent 90%);
-  mask-image: linear-gradient(180deg, #000, transparent 90%);
-}
-[data-academix] .ax-band-glow {
-  position: absolute;
-  pointer-events: none;
-  background: radial-gradient(closest-side, rgba(58, 91, 255, 0.4), transparent);
-}
-[data-academix] .ax-dcard {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  transition: transform 0.25s, border-color 0.25s;
-}
-[data-academix] .ax-dcard:hover {
-  transform: translateY(-4px);
-  border-color: rgba(147, 166, 255, 0.55);
-}
-[data-academix] .ax-dcard-icon {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-/* Fotografía del hero con esquinas cortadas */
-[data-academix] .ax-hero-photo {
-  clip-path: polygon(0 0, 84% 0, 100% 16%, 100% 100%, 16% 100%, 0 84%);
-}
-[data-academix] .ax-hero-photo-tint {
-  background: linear-gradient(200deg, rgba(58, 91, 255, 0) 45%, rgba(58, 91, 255, 0.28) 100%);
-}
-
-/* --------------------------------------------------------------------------
-   Portadas generadas para cursos e instituciones sin imagen
+   Portadas generadas (cursos sin imagen) y franjas de institución
    -------------------------------------------------------------------------- */
 [data-academix] .ax-cover {
   position: relative;
   overflow: hidden;
-  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-[data-academix] .ax-cover::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
+[data-academix] .ax-cover::before,
 [data-academix] .ax-cover::after { content: ""; position: absolute; }
 
-[data-academix] .ax-cover--tecnologia { background: linear-gradient(135deg, #2f4be0, #3a5bff 55%, #5f7bff); }
-[data-academix] .ax-cover--tecnologia::after { right: -26px; bottom: -26px; width: 110px; height: 110px; border-radius: 50%; border: 2px solid #7fe3f2; }
-[data-academix] .ax-cover--idiomas { background: linear-gradient(135deg, #5b2fd0, #8b5cf6); }
-[data-academix] .ax-cover--idiomas::after { right: 22px; top: 22px; width: 46px; height: 46px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.55); transform: rotate(14deg); }
-[data-academix] .ax-cover--gestion { background: linear-gradient(135deg, #141c55, #2f4be0); }
-[data-academix] .ax-cover--gestion::after { right: 24px; bottom: 26px; width: 88px; height: 10px; border-radius: 5px; background: #7fe3f2; box-shadow: 0 -18px 0 -1px rgba(255, 255, 255, 0.35), 0 -36px 0 -2px rgba(255, 255, 255, 0.2); }
-[data-academix] .ax-cover--diseno { background: linear-gradient(135deg, #3a5bff, #8b5cf6); }
-[data-academix] .ax-cover--diseno::after { right: -30px; top: -30px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); }
-[data-academix] .ax-cover--educacion { background: linear-gradient(135deg, #0b1026, #26337f); }
-[data-academix] .ax-cover--educacion::after { right: 26px; bottom: 24px; width: 54px; height: 54px; border-radius: 50%; border: 2px solid #b8f35a; }
-[data-academix] .ax-cover--general { background: linear-gradient(135deg, #2f4be0, #6d3fe0); }
-[data-academix] .ax-cover--general::after { right: 24px; top: 22px; width: 40px; height: 40px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.5); }
+[data-academix] .ax-cover-icon {
+  position: relative;
+  z-index: 1;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px -12px rgba(27, 20, 70, 0.5);
+}
 
-/* Franja de las tarjetas de institución (más baja) */
-[data-academix] .ax-cover--banner::before { background-size: 22px 22px; }
-[data-academix] .ax-cover--a { background: linear-gradient(135deg, #2f4be0, #5f7bff); }
-[data-academix] .ax-cover--a::after { right: -24px; top: -30px; width: 110px; height: 110px; border-radius: 50%; border: 2px solid #7fe3f2; }
-[data-academix] .ax-cover--b { background: linear-gradient(135deg, #5b2fd0, #8b5cf6); }
-[data-academix] .ax-cover--b::after { right: 28px; top: 18px; width: 44px; height: 44px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.55); transform: rotate(14deg); }
-[data-academix] .ax-cover--c { background: linear-gradient(135deg, #141c55, #2f4be0); }
-[data-academix] .ax-cover--c::after { right: 26px; top: 38px; width: 90px; height: 8px; border-radius: 4px; background: #7fe3f2; }
-[data-academix] .ax-cover--d { background: linear-gradient(135deg, #0b1026, #26337f); }
-[data-academix] .ax-cover--d::after { right: 30px; top: 18px; width: 50px; height: 50px; border-radius: 50%; border: 2px solid #b8f35a; }
+[data-academix] .ax-cover--tecnologia { background: var(--ax-soft-violet); }
+[data-academix] .ax-cover--tecnologia .ax-cover-icon { color: #5a2ee0; }
+[data-academix] .ax-cover--tecnologia::before { right: -20px; top: -20px; width: 110px; height: 110px; border-radius: 50%; background: #6c3bf5; }
+[data-academix] .ax-cover--tecnologia::after { left: 18px; bottom: -30px; width: 80px; height: 80px; background: #ffc93c; border-radius: 0 100% 0 0; }
+
+[data-academix] .ax-cover--idiomas { background: var(--ax-soft-coral); }
+[data-academix] .ax-cover--idiomas .ax-cover-icon { color: #b23a2e; }
+[data-academix] .ax-cover--idiomas::before { left: -24px; top: -24px; width: 100px; height: 100px; border-radius: 50%; background: #ff6b5b; }
+[data-academix] .ax-cover--idiomas::after { right: 20px; bottom: 18px; width: 54px; height: 54px; border-radius: 14px; background: #2ec4a0; transform: rotate(18deg); }
+
+[data-academix] .ax-cover--gestion { background: var(--ax-soft-mint); }
+[data-academix] .ax-cover--gestion .ax-cover-icon { color: #0f6446; }
+[data-academix] .ax-cover--gestion::before { right: -10px; bottom: -40px; width: 140px; height: 140px; border-radius: 999px 999px 0 0; background: #2ec4a0; }
+[data-academix] .ax-cover--gestion::after { left: 24px; top: 20px; width: 26px; height: 26px; border-radius: 50%; background: #ff6b5b; }
+
+[data-academix] .ax-cover--diseno { background: var(--ax-soft-yellow); }
+[data-academix] .ax-cover--diseno .ax-cover-icon { color: #7a5000; }
+[data-academix] .ax-cover--diseno::before { left: -30px; bottom: -30px; width: 120px; height: 120px; border-radius: 50%; background: #ffc93c; }
+[data-academix] .ax-cover--diseno::after { right: 26px; top: 22px; width: 44px; height: 44px; border-radius: 12px; border: 4px solid #6c3bf5; transform: rotate(12deg); }
+
+[data-academix] .ax-cover--educacion { background: var(--ax-soft-violet); }
+[data-academix] .ax-cover--educacion .ax-cover-icon { color: #0f6446; }
+[data-academix] .ax-cover--educacion::before { right: -24px; bottom: -24px; width: 110px; height: 110px; border-radius: 50%; background: #2ec4a0; }
+[data-academix] .ax-cover--educacion::after { left: 22px; top: 18px; width: 46px; height: 23px; border-radius: 999px 999px 0 0; background: #ffc93c; }
+
+[data-academix] .ax-cover--general { background: var(--ax-soft-yellow); }
+[data-academix] .ax-cover--general .ax-cover-icon { color: #5a2ee0; }
+[data-academix] .ax-cover--general::before { right: -20px; top: -20px; width: 100px; height: 100px; border-radius: 50%; background: #ff6b5b; }
+[data-academix] .ax-cover--general::after { left: 20px; bottom: -20px; width: 70px; height: 70px; border-radius: 50%; background: #6c3bf5; }
+
+/* Franjas de las tarjetas de institución */
+[data-academix] .ax-cover--a { background: var(--ax-soft-violet); }
+[data-academix] .ax-cover--a::before { right: -20px; top: -30px; width: 110px; height: 110px; border-radius: 50%; background: #6c3bf5; }
+[data-academix] .ax-cover--a::after { left: 46%; bottom: -26px; width: 70px; height: 70px; background: #ffc93c; border-radius: 0 100% 0 0; }
+[data-academix] .ax-cover--b { background: var(--ax-soft-coral); }
+[data-academix] .ax-cover--b::before { right: 30px; top: -24px; width: 90px; height: 90px; border-radius: 50%; background: #ff6b5b; }
+[data-academix] .ax-cover--b::after { right: -10px; bottom: 10px; width: 46px; height: 46px; border-radius: 12px; background: #2ec4a0; transform: rotate(18deg); }
+[data-academix] .ax-cover--c { background: var(--ax-soft-mint); }
+[data-academix] .ax-cover--c::before { right: -10px; bottom: -60px; width: 140px; height: 140px; border-radius: 999px 999px 0 0; background: #2ec4a0; }
+[data-academix] .ax-cover--c::after { right: 150px; top: 22px; width: 24px; height: 24px; border-radius: 50%; background: #ff6b5b; }
+[data-academix] .ax-cover--d { background: var(--ax-soft-yellow); }
+[data-academix] .ax-cover--d::before { right: -30px; top: -30px; width: 120px; height: 120px; border-radius: 50%; background: #ffc93c; }
+[data-academix] .ax-cover--d::after { right: 120px; top: 26px; width: 40px; height: 40px; border-radius: 12px; border: 4px solid #6c3bf5; transform: rotate(12deg); }
 
 /* --------------------------------------------------------------------------
    Campos de formulario
    -------------------------------------------------------------------------- */
 [data-academix] .ax-field {
-  height: 48px;
+  height: 50px;
   width: 100%;
   box-sizing: border-box;
-  border-radius: 12px;
-  border: 1px solid var(--ax-line);
+  border-radius: 16px;
+  border: 2px solid var(--ax-line);
   background-color: var(--ax-surface);
   color: var(--ax-ink);
-  font: 500 15.5px var(--ax-font-body, "IBM Plex Sans"), system-ui, sans-serif;
+  font: 500 16px var(--ax-font-body, "DM Sans"), system-ui, sans-serif;
+  padding: 0 14px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 [data-academix] .ax-field::placeholder { color: var(--ax-muted); opacity: 1; }
 [data-academix] .ax-field:focus,
 [data-academix] .ax-field:focus-visible {
   outline: none;
-  border-color: var(--ax-blue-text);
-  box-shadow: 0 0 0 3px rgba(58, 91, 255, 0.2);
+  border-color: var(--ax-violet-text);
+  box-shadow: 0 0 0 4px rgba(108, 59, 245, 0.18);
 }
-[data-academix] select.ax-field { padding: 0 12px; cursor: pointer; }
-[data-academix] input.ax-field { padding: 0 14px 0 46px; }
-[data-academix] input.ax-field[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
-[data-academix] .ax-field--lg { height: 52px; }
-[data-academix] .ax-field--xl { height: 56px; border-radius: 14px; font-size: 16.5px; box-shadow: var(--ax-shadow); }
-[data-academix] .ax-field--compact { width: auto; min-width: 170px; height: 44px; }
-/* Nota: academix.css no usa @layer. Para no competir con las utilidades de
-   Tailwind, las variantes de tamaño de .ax-field y .ax-skeleton se expresan
-   con modificadores propios y no con utilidades (h-*, rounded-*). */
+[data-academix] select.ax-field { cursor: pointer; }
+[data-academix] input.ax-field { padding-left: 48px; }
+/* Variantes (no usar utilidades h-* / rounded-* sobre .ax-field) */
+[data-academix] .ax-field--pill { border-radius: 999px; }
+[data-academix] .ax-field--lg { height: 54px; }
+[data-academix] .ax-field--xl { height: 60px; border-radius: 999px; padding-left: 54px; font-size: 17px; box-shadow: var(--ax-shadow); }
+[data-academix] .ax-field--compact { width: auto; min-width: 180px; height: 46px; border-radius: 999px; }
 
 /* --------------------------------------------------------------------------
-   Estados de carga y animaciones
+   Carga y animaciones
    -------------------------------------------------------------------------- */
 [data-academix] .ax-skeleton {
   background: linear-gradient(90deg, var(--ax-skeleton) 0%, var(--ax-surface-2) 50%, var(--ax-skeleton) 100%);
   background-size: 200% 100%;
   animation: ax-shimmer 1.3s linear infinite;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
-@keyframes ax-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes ax-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ax-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-@keyframes ax-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes ax-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes ax-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes ax-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 [data-academix] .ax-anim-in { animation: ax-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 [data-academix] .ax-delay-1 { animation-delay: 0.1s; }
-[data-academix] .ax-delay-2 { animation-delay: 0.22s; }
-[data-academix] .ax-pulse { animation: ax-pulse 2s ease-in-out infinite; }
-[data-academix] .ax-drift { animation: ax-drift 7s ease-in-out infinite; }
-[data-academix] .ax-fade { animation: ax-fade 0.25s ease both; }
+[data-academix] .ax-delay-2 { animation-delay: 0.2s; }
+[data-academix] .ax-bob { animation: ax-bob 6s ease-in-out infinite; }
+[data-academix] .ax-bob-late { animation: ax-bob 6s ease-in-out -3s infinite; }
 
-/* Fila de categorías: se desplaza horizontalmente en móvil */
+/* Fila de categorías: desplazamiento horizontal en móvil */
 @media (max-width: 900px) {
-  [data-academix] .ax-chip-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+  [data-academix] .ax-chip-row { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
   [data-academix] .ax-chip-row::-webkit-scrollbar { display: none; }
 }
 

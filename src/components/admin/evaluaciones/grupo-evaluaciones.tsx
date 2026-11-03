@@ -67,7 +67,7 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       {!gestionDisponible && (
         <p className="flex gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
           <Info className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
@@ -88,7 +88,7 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
           {evaluaciones.length === 0 ? (
             <p className="text-sm text-muted-foreground">El grupo aún no tiene evaluaciones.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div role="region" aria-label="Evaluaciones del grupo" tabIndex={0} className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
               <table className="w-full min-w-[520px] text-sm">
                 <thead className="bg-muted/50 text-xs text-muted-foreground">
                   <tr>
@@ -170,7 +170,7 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
           {estudiantes.length === 0 ? (
             <p className="text-sm text-muted-foreground">El grupo no tiene matrículas.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div role="region" aria-label="Calificaciones de estudiantes" tabIndex={0} className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
               <table className="w-full text-sm" style={{ minWidth: `${560 + evaluaciones.length * 90}px` }}>
                 <thead className="bg-muted/50 text-xs text-muted-foreground">
                   <tr>
@@ -317,7 +317,7 @@ function FormularioEvaluacion({ grupoId, id, inicial, alCerrar, alGuardar }: { g
             <Input id="ev-nombre" value={v.nombre} onChange={(e) => set("nombre", e.target.value)} maxLength={EVALUACION_NOMBRE_MAX} disabled={enviando} placeholder="Ej.: Examen parcial" />
             {errores.nombre && <FieldError>{errores.nombre}</FieldError>}
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <Field data-invalid={!!errores.peso || undefined}>
               <FieldLabel htmlFor="ev-peso">Peso (%)</FieldLabel>
               <Input id="ev-peso" inputMode="decimal" value={v.peso} onChange={(e) => set("peso", e.target.value)} disabled={enviando} />

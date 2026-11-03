@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { X } from "lucide-react"
 
 import { LogoInstitucion } from "@/components/admin/logo-institucion"
-import { LogoAcademix, NOMBRE_MARCA } from "@/components/marca/logo-academix"
+import { DENOMINACION, LogoAcademix, NOMBRE_MARCA } from "@/components/marca/logo-academix"
 import { useNavegacionProtegida } from "@/components/layout/proteccion-cambios"
 import { Button } from "@/components/ui/button"
 import { isNavItemActive, roleConfig, type Role } from "@/config/navigation"
@@ -36,10 +36,8 @@ export function AppSidebar({ role, institution, institutionLogo, open, onClose }
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-5">
         <LogoAcademix />
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-semibold">{NOMBRE_MARCA}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            Gestión académica
-          </p>
+          <p className="truncate font-heading text-base font-extrabold">{NOMBRE_MARCA}</p>
+          <p className="line-clamp-2 text-[11px] leading-tight text-muted-foreground">{DENOMINACION}</p>
         </div>
         <Button
           variant="ghost"

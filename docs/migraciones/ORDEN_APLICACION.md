@@ -38,3 +38,31 @@ Las reversiones no restauran estos permisos, porque hacerlo reabriría los hueco
 
 - Cargar los datos de simulación.
 - `REVISION_PAGOS_HABILITADA` sigue en `false` hasta superar las pruebas de pagos (T1–T17) y estas (E1–E14, C1–C33).
+
+## Migración incremental posterior (31-10-2026)
+
+| Paso | Archivo | Tipo |
+|---|---|---|
+| 8 | `docs/migraciones/oferta_grupos_anon_v5.sql` | Migración (independiente) |
+
+Permite que los visitantes sin sesión vean los grupos y las vacantes en la ficha del curso (hoy reciben el error 42501).
+No concede a `anon` el esquema `privado`: usa la función pública mínima `public.vacantes_oferta`.
+Su bloque 0 aborta si la vista no coincide con la definición V5. Detalle en `docs/auditoria-2026-10-31.md`.
+
+## Migración incremental posterior (02-11-2026)
+
+| Paso | Archivo | Tipo |
+|---|---|---|
+| 9 | `docs/migraciones/portadas_cursos_v5.sql` | Migración (independiente del paso 8) |
+| 10 | Bloque «VERIFICACIÓN» al final de `portadas_cursos_v5.sql` | Solo lectura |
+
+Añade la portada opcional de cada curso para el asistente de creación (`/admin/cursos/nuevo` y `/admin/cursos/[id]/asistente`):
+
+- la columna `public.cursos.portada_url`. Es opcional y los cursos actuales quedan en `null`, con la portada generada de siempre;
+- el bucket público `portadas-cursos`, de 3 MB, que solo admite PNG, JPEG y WebP;
+- las políticas de Storage. Un administrador solo escribe en `<su institución>/<curso de su institución>/`;
+- la vista `oferta_cursos` con `portada_url` al final. Mantiene las columnas, el filtro y los permisos anteriores.
+
+No modifica filas existentes. Su bloque 0 aborta si `oferta_cursos` no coincide con la definición V5.
+Antes de aplicarla, el asistente funciona igual, pero el paso 1 indica que la carga de portada está pendiente de esta migración.
+La reversión no usa `CASCADE`: deja `portada_url` en la vista con valor `null`, para no borrar `oferta_grupos`.

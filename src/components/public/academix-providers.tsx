@@ -7,7 +7,7 @@ import Link from "next/link"
 import { AcademixUIProvider } from "@/academix/context/AcademixUIProvider"
 import type { ImageComponent, LinkComponent, PublicRoutes } from "@/academix/types"
 
-// Adaptadores de Next para el kit Creative Tech: los componentes de src/academix
+// Adaptadores de Next para el kit Academix Vibrant: los componentes de src/academix
 // no importan next/link ni next/image, los reciben de aquí.
 const NextLink: LinkComponent = ({ href, children, ...rest }) => (
   <Link href={href} {...rest}>

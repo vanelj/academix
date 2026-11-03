@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { unstable_rethrow } from "next/navigation"
 
 /**
  * Fila de la vista pública public.oferta_cursos (base de datos V4).
@@ -16,10 +17,13 @@ export type OfertaCurso = {
   institucion: string
   logo_url: string | null
   modalidad: "virtual"
+  /** Portada del curso (migración portadas_cursos_v5); null o ausente = portada generada. */
+  portada_url?: string | null
 }
 
 const COLUMNAS =
   "id, nombre, descripcion, precio, categoria_id, categoria, institucion_id, institucion, logo_url, modalidad"
+const COLUMNAS_CON_PORTADA = `${COLUMNAS}, portada_url`
 
 export type ResultadoOferta =
   | { ok: true; cursos: OfertaCurso[] }
@@ -28,18 +32,28 @@ export type ResultadoOferta =
 export async function obtenerOfertaCursos(limite?: number): Promise<ResultadoOferta> {
   try {
     const supabase = await createClient()
-    const consulta = supabase.from("oferta_cursos").select(COLUMNAS).order("nombre")
-    const { data, error } = await (limite ? consulta.limit(limite) : consulta)
-      .overrideTypes<OfertaCurso[], { merge: false }>()
+    const leer = (columnas: string) => {
+      const consulta = supabase.from("oferta_cursos").select(columnas).order("nombre")
+      return (limite ? consulta.limit(limite) : consulta).overrideTypes<OfertaCurso[], { merge: false }>()
+    }
+    // Con la portada si la vista ya la expone; si no (42703, migración pendiente), sin ella.
+    let { data, error } = await leer(COLUMNAS_CON_PORTADA)
+    if (error?.code === "42703") ({ data, error } = await leer(COLUMNAS))
 
     if (error) {
       console.error("[oferta_cursos]", error.code, error.message)
       return { ok: false }
     }
 
-    return { ok: true, cursos: data }
+    return { ok: true, cursos: data ?? [] }
   } catch (e) {
-    console.error("[oferta_cursos] error inesperado", e)
+    // Next usa errores internos de control de flujo al leer cookies/headers
+    // durante el prerender. Deben llegar al framework para marcar la ruta dinámica.
+    unstable_rethrow(e)
+    console.error("[oferta_cursos] error inesperado", {
+      nombre: e instanceof Error ? e.name : typeof e,
+      mensaje: e instanceof Error ? e.message : "Excepción no estándar",
+    })
     return { ok: false }
   }
 }

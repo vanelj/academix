@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
@@ -9,10 +9,12 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { guardarCertificacionCurso } from "@/lib/certificados/acciones"
+import type { GuardadorAsistente, ResultadoGuardadoAsistente } from "@/lib/cursos/asistente-logica"
 import { DESCRIPCION_MODALIDAD, ETIQUETA_MODALIDAD, MODALIDADES, type Modalidad } from "@/lib/certificados/config"
 import type { CertificacionCurso, Firmante, PlantillaCertificado } from "@/lib/certificados/datos"
 import { notificar } from "@/lib/notificaciones"
 import { cn } from "@/lib/utils"
+import { useProtegerCambios } from "@/components/layout/proteccion-cambios"
 
 type Props = {
   cursoId: string
@@ -20,39 +22,72 @@ type Props = {
   plantillas: PlantillaCertificado[]
   firmantes: Firmante[]
   notaAprobatoria: number
+  /** Oculta el botón propio cuando la navegación del asistente coordina el guardado. */
+  ocultarBotonGuardar?: boolean
+  onRegistrarGuardado?: (guardar: GuardadorAsistente | null, pendiente: boolean) => void
 }
 
 /** Condiciones de certificación del curso (se muestran en el catálogo antes de inscribirse). */
-export function CertificacionCursoForm({ cursoId, config, plantillas, firmantes, notaAprobatoria }: Props) {
+export function CertificacionCursoForm({ cursoId, config, plantillas, firmantes, notaAprobatoria, ocultarBotonGuardar, onRegistrarGuardado }: Props) {
   const router = useRouter()
-  const [modalidad, setModalidad] = useState<Modalidad>(config?.modalidad ?? "sin_certificado")
-  const [importe, setImporte] = useState(config && config.importe > 0 ? config.importe.toFixed(2) : "")
-  const [notaMinima, setNotaMinima] = useState(config?.nota_minima !== null && config?.nota_minima !== undefined ? String(config.nota_minima) : "")
-  const [horas, setHoras] = useState(config?.horas_academicas ? String(config.horas_academicas) : "")
-  const [requisitos, setRequisitos] = useState(config?.requisitos_adicionales ?? "")
-  const [plantilla, setPlantilla] = useState(config?.plantilla_id ?? "")
-  const [firmante, setFirmante] = useState(config?.firmante_id ?? "")
+  const [base, setBase] = useState(() => valoresIniciales(config))
+  const [modalidad, setModalidad] = useState(base.modalidad)
+  const [importe, setImporte] = useState(base.importe)
+  const [notaMinima, setNotaMinima] = useState(base.nota_minima)
+  const [horas, setHoras] = useState(base.horas_academicas)
+  const [requisitos, setRequisitos] = useState(base.requisitos_adicionales)
+  const [plantilla, setPlantilla] = useState(base.plantilla_id)
+  const [firmante, setFirmante] = useState(base.firmante_id)
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const ofrece = modalidad !== "sin_certificado"
+  const actuales = { modalidad, importe, nota_minima: notaMinima, horas_academicas: horas, requisitos_adicionales: requisitos, plantilla_id: plantilla, firmante_id: firmante }
+  const cambios = Object.keys(actuales).some((campo) => actuales[campo as keyof typeof actuales] !== base[campo as keyof typeof base])
+  useProtegerCambios(cambios)
 
-  async function guardar(e: React.FormEvent) {
-    e.preventDefault()
-    if (enviando) return
+  const persistir = useCallback(async (mostrarAvisos: boolean): Promise<ResultadoGuardadoAsistente> => {
+    if (enviando) return { ok: false, mensaje: "El guardado de la certificación sigue en curso. Espera a que termine." }
+    if (!cambios) {
+      if (mostrarAvisos) notificar.info("No hay cambios para guardar.")
+      return { ok: true, guardado: false }
+    }
     setEnviando(true)
-    const op = notificar.operacion("Guardando certificación…")
+    const op = mostrarAvisos ? notificar.operacion("Guardando certificación…") : null
+    const valores = { modalidad, importe, nota_minima: notaMinima, horas_academicas: horas, requisitos_adicionales: requisitos, plantilla_id: plantilla, firmante_id: firmante }
     try {
       const r = await guardarCertificacionCurso(cursoId, {
         modalidad, importe, nota_minima: notaMinima, horas_academicas: horas, requisitos_adicionales: requisitos,
         plantilla_id: plantilla || null, firmante_id: firmante || null,
       })
-      if (r.ok) { op.exito("Certificación guardada", { descripcion: "Los cambios se aplican a los próximos certificados." }); setErrores({}); router.refresh() }
-      else { setErrores(r.campos ?? {}); (r.gravedad === "advertencia" ? op.advertencia : op.error)("No se pudo guardar", { descripcion: r.mensaje }) }
+      if (r.ok) {
+        setBase(valores)
+        setErrores({})
+        op?.exito("Certificación guardada", { descripcion: "Los cambios se aplican a los próximos certificados." })
+        router.refresh()
+        return { ok: true, guardado: true }
+      }
+      setErrores(r.campos ?? {})
+      if (op) (r.gravedad === "advertencia" ? op.advertencia : op.error)("No se pudo guardar", { descripcion: r.mensaje })
+      return { ok: false, mensaje: r.mensaje }
     } catch {
-      op.error("No se pudo guardar", { descripcion: "Revisa tu conexión e inténtalo de nuevo." })
+      const mensaje = "Revisa tu conexión e inténtalo de nuevo."
+      op?.error("No se pudo guardar", { descripcion: mensaje })
+      return { ok: false, mensaje }
     } finally {
       setEnviando(false)
     }
+  }, [cambios, cursoId, enviando, firmante, horas, importe, modalidad, notaMinima, requisitos, router, plantilla])
+
+  const guardarDesdeAsistente = useCallback<GuardadorAsistente>(() => persistir(false), [persistir])
+  useEffect(() => {
+    if (!onRegistrarGuardado) return
+    onRegistrarGuardado(guardarDesdeAsistente, cambios)
+    return () => onRegistrarGuardado(null, false)
+  }, [cambios, guardarDesdeAsistente, onRegistrarGuardado])
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault()
+    await persistir(true)
   }
 
   return (
@@ -119,10 +154,24 @@ export function CertificacionCursoForm({ cursoId, config, plantillas, firmantes,
           </div>
         </>
       )}
-      <Button type="submit" size="sm" disabled={enviando}>
-        {enviando && <Loader2 className="animate-spin" aria-hidden />}
-        Guardar certificación
-      </Button>
+      {!ocultarBotonGuardar && (
+        <Button type="submit" size="sm" disabled={enviando}>
+          {enviando && <Loader2 className="animate-spin" aria-hidden />}
+          Guardar certificación
+        </Button>
+      )}
     </form>
   )
+}
+
+function valoresIniciales(config: CertificacionCurso | null) {
+  return {
+    modalidad: config?.modalidad ?? "sin_certificado" as Modalidad,
+    importe: config && config.importe > 0 ? config.importe.toFixed(2) : "",
+    nota_minima: config?.nota_minima !== null && config?.nota_minima !== undefined ? String(config.nota_minima) : "",
+    horas_academicas: config?.horas_academicas ? String(config.horas_academicas) : "",
+    requisitos_adicionales: config?.requisitos_adicionales ?? "",
+    plantilla_id: config?.plantilla_id ?? "",
+    firmante_id: config?.firmante_id ?? "",
+  }
 }

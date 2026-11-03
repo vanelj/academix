@@ -8,6 +8,7 @@ import { SiteFooter } from '../components/layout/SiteFooter';
 import { SiteHeader } from '../components/layout/SiteHeader';
 import { Button } from '../components/ui/Button';
 import { SearchField, SelectField } from '../components/ui/Fields';
+import { Highlight } from '../components/ui/Tags';
 import { useAcademixUI } from '../context/AcademixUIProvider';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ALL, type FilterOption, type InstitutionFilters, type InstitutionSort, type InstitutionSummary, type LoadStatus } from '../types';
@@ -28,6 +29,14 @@ const sortOptions: FilterOption[] = [
   { value: 'az', label: 'Nombre (A–Z)' },
   { value: 'courses', label: 'Más cursos publicados' },
 ];
+
+const decoration = (
+  <>
+    <div aria-hidden className="absolute right-[6%] top-9 h-[120px] w-[120px] rounded-full border-[20px] border-ax-yellow opacity-90" />
+    <div aria-hidden className="absolute right-[18%] top-[120px] h-[46px] w-[46px] rotate-[18deg] rounded-xl bg-ax-coral" />
+    <div aria-hidden className="absolute right-[2%] top-[190px] h-7 w-7 rounded-full bg-ax-mint" />
+  </>
+);
 
 /** Página «Instituciones» completa. Presentación + eventos; no obtiene datos. */
 export function InstitutionsView({
@@ -69,13 +78,17 @@ export function InstitutionsView({
       <SiteHeader routes={routes} active="institutions" linkComponent={Link} />
       <main>
         <PageIntro
-          title="Instituciones"
+          title={
+            <>
+              <Highlight color="coral">Instituciones</Highlight> en Academix
+            </>
+          }
           description="Conoce las instituciones educativas que publican sus cursos virtuales en Academix y consulta su oferta."
-          breadcrumb={[{ label: 'inicio', href: routes.home }, { label: 'instituciones' }]}
-          glow="violet"
+          breadcrumb={[{ label: 'Inicio', href: routes.home }, { label: 'Instituciones' }]}
+          decoration={decoration}
           linkComponent={Link}
         >
-          <div className="mt-1.5 flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <SearchField
               size="lg"
               className="flex-[2_1_320px]"
@@ -86,17 +99,17 @@ export function InstitutionsView({
             />
             <SelectField
               className="flex-[1_1_200px]"
-              selectClassName="ax-field--lg"
-              label="área"
+              shape="pill"
+              label="Área"
               value={filters.area}
               onChange={(v) => onFiltersChange({ ...filters, area: v })}
               options={areaOptions}
               allLabel="Todas las áreas"
             />
             <SelectField
-              className="flex-[1_1_180px]"
-              selectClassName="ax-field--lg"
-              label="ordenar"
+              className="flex-[1_1_200px]"
+              shape="pill"
+              label="Ordenar"
               value={filters.sort}
               onChange={(v) => onFiltersChange({ ...filters, sort: v as InstitutionSort })}
               options={sortOptions}
@@ -104,14 +117,14 @@ export function InstitutionsView({
           </div>
         </PageIntro>
 
-        <section className="pb-[72px] pt-2">
-          <div className="mx-auto flex max-w-[1240px] flex-col gap-[18px] px-5">
+        <section className="pb-[72px] pt-3">
+          <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-5">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <p aria-live="polite" className="text-[15px] text-ax-muted">
+              <p aria-live="polite" className="text-[15.5px] font-semibold text-ax-muted">
                 {resultText}
               </p>
               {hasFilters ? (
-                <Button variant="ghost" size="sm" onClick={clear}>
+                <Button variant="outline" size="sm" onClick={clear}>
                   Limpiar filtros
                 </Button>
               ) : null}

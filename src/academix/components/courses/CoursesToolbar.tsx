@@ -1,7 +1,7 @@
 import { ListFilter, X } from 'lucide-react';
 import type { CourseSort } from '../../types';
 import { Button } from '../ui/Button';
-import { FieldLabel } from '../ui/Fields';
+import { FieldLabel } from '../ui/Tags';
 
 export interface ActiveChip {
   key: string;
@@ -35,27 +35,23 @@ export function CoursesToolbar({
       <div className="flex flex-wrap items-center justify-between gap-3 max-[900px]:order-1 max-[900px]:w-full">
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
-            variant="ghost"
+            variant="soft"
             size="sm"
             className="min-[900px]:hidden"
             aria-expanded={filtersOpen}
             aria-controls={filtersPanelId}
             onClick={onToggleFilters}
           >
-            <ListFilter aria-hidden size={16} />
+            <ListFilter aria-hidden size={16} strokeWidth={2.2} />
             Filtros
           </Button>
-          <p aria-live="polite" className="text-[15px] text-ax-muted">
+          <p aria-live="polite" className="text-[15.5px] font-semibold text-ax-muted">
             {resultText}
           </p>
         </div>
         <label className="flex items-center gap-2.5">
-          <FieldLabel>ordenar</FieldLabel>
-          <select
-            className="ax-field ax-field--compact"
-            value={sort}
-            onChange={(e) => onSortChange(e.target.value as CourseSort)}
-          >
+          <FieldLabel>Ordenar</FieldLabel>
+          <select className="ax-field ax-field--compact" value={sort} onChange={(e) => onSortChange(e.target.value as CourseSort)}>
             <option value="az">Nombre (A–Z)</option>
             <option value="precio-asc">Precio: menor a mayor</option>
             <option value="precio-desc">Precio: mayor a menor</option>
@@ -70,10 +66,10 @@ export function CoursesToolbar({
               type="button"
               aria-label={c.ariaLabel}
               onClick={c.onRemove}
-              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border-0 bg-ax-soft-blue px-3 text-sm font-semibold text-ax-blue-text hover:bg-ax-surface-2"
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border-0 bg-ax-soft-violet px-3.5 text-sm font-bold text-ax-violet-text hover:bg-ax-soft-yellow hover:text-ax-ink"
             >
               {c.label}
-              <X aria-hidden size={14} strokeWidth={2.4} />
+              <X aria-hidden size={14} strokeWidth={2.6} />
             </button>
           ))}
         </div>

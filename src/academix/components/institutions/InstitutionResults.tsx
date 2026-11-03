@@ -7,7 +7,7 @@ import { Button, ButtonLink } from '../ui/Button';
 import { StatePanel } from '../ui/StatePanel';
 import { InstitutionCard, InstitutionCardSkeleton } from './InstitutionCard';
 
-export const institutionGridClass = 'grid gap-[18px] grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))]';
+export const institutionGridClass = 'grid gap-[22px] grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))]';
 
 export interface InstitutionResultsProps {
   status: LoadStatus;
@@ -21,7 +21,7 @@ export interface InstitutionResultsProps {
   linkComponent?: LinkComponent;
 }
 
-/** Directorio con sus estados: carga, error, vacío y resultados. */
+/** Directorio con sus estados: carga, error, vacío, sin resultados y resultados. */
 export function InstitutionResults({
   status,
   institutions,
@@ -46,8 +46,8 @@ export function InstitutionResults({
     return (
       <StatePanel
         alert
-        tone="error"
-        icon={<TriangleAlert size={28} strokeWidth={1.8} />}
+        tone="coral"
+        icon={<TriangleAlert size={32} />}
         title="No se pudo cargar el directorio"
         description={errorMessage}
         action={onRetry ? <Button size="sm" onClick={onRetry}>Reintentar</Button> : undefined}
@@ -58,7 +58,7 @@ export function InstitutionResults({
     return (
       <StatePanel
         tone="violet"
-        icon={<ZoomOut size={28} strokeWidth={1.8} />}
+        icon={<ZoomOut size={32} />}
         title="Ninguna institución coincide con tu búsqueda"
         action={onClearFilters ? <Button size="sm" onClick={onClearFilters}>Limpiar filtros</Button> : undefined}
       />
@@ -67,13 +67,14 @@ export function InstitutionResults({
   if (institutions.length === 0) {
     return (
       <StatePanel
-        icon={<Building2 size={28} strokeWidth={1.8} />}
+        tone="yellow"
+        icon={<Building2 size={32} />}
         // Academix: el directorio solo lista instituciones con cursos publicados (oferta_cursos),
         // así que «registradas» no sería exacto.
         title="Aún no hay instituciones con cursos publicados"
         description="Las instituciones aparecerán aquí cuando publiquen sus cursos virtuales en Academix."
         action={
-          <ButtonLink href={routes.registerInstitution} size="sm" linkComponent={linkComponent}>
+          <ButtonLink href={routes.registerInstitution} variant="yellow" size="sm" linkComponent={linkComponent}>
             Registrar institución
           </ButtonLink>
         }

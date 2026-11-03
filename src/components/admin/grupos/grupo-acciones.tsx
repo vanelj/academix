@@ -36,11 +36,14 @@ export function GrupoAcciones({
   codigo,
   estado,
   eliminable,
+  alEliminar,
 }: {
   grupoId: string
   codigo: string
   estado: EstadoGrupo
   eliminable: boolean
+  /** Si se indica, se llama tras eliminar en lugar de volver al listado de grupos. */
+  alEliminar?: () => void
 }) {
   const router = useRouter()
   const [confirmar, setConfirmar] = useState<EstadoGrupo | "eliminar" | null>(null)
@@ -58,7 +61,10 @@ export function GrupoAcciones({
           descripcion: accion === "eliminar" ? `Se eliminó el grupo ${codigo}.` : undefined,
         })
         setConfirmar(null)
-        if (accion === "eliminar") router.push("/admin/grupos")
+        if (accion === "eliminar") {
+          if (alEliminar) alEliminar()
+          else router.push("/admin/grupos")
+        }
         router.refresh()
       } else {
         const avisar = r.gravedad === "advertencia" ? op.advertencia : op.error

@@ -63,7 +63,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <div className="flex min-w-0 flex-col">
         <CabeceraMarcaMovil className="lg:hidden" />
 
-        <div className="flex items-center justify-between px-5 pt-5 sm:px-8 lg:px-12">
+        <nav aria-label="Navegación de acceso" className="flex items-center justify-between px-5 pt-5 sm:px-8 lg:px-12">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -72,7 +72,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             Volver al inicio
           </Link>
           <ThemeToggle />
-        </div>
+        </nav>
 
         <main className="flex flex-1 items-start justify-center px-5 py-8 sm:px-8 lg:items-center lg:px-12">
           <div className="w-full max-w-sm">

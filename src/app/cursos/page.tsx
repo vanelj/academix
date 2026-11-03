@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Explora los cursos virtuales ofrecidos por las instituciones de la plataforma.",
 }
 
-// Catálogo público de todas las instituciones (diseño Creative Tech): lee solo la
+// Catálogo público de todas las instituciones (diseño Academix Vibrant): lee solo la
 // vista oferta_cursos, sin sesión. Admite ?q=&categoria=&institucion=&orden=.
 export default async function CursosPage({ searchParams }: PageProps<"/cursos">) {
   const filtros = parseCourseSearchParams(await searchParams)

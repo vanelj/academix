@@ -68,7 +68,10 @@ export function PlanCuotas({ cursoId, plan, importeCurso }: { cursoId: string; p
           Sin plan de cuotas no se aceptan solicitudes de matrícula para este curso.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div
+          // relative: contiene los textos sr-only absolutos dentro del desplazamiento (evita scroll horizontal en móvil).
+          className="relative overflow-x-auto rounded-lg border"
+        >
           <table className="w-full min-w-[480px] text-sm">
             <caption className="sr-only">Plan de cuotas</caption>
             <thead className="bg-muted/50 text-xs text-muted-foreground">
