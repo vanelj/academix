@@ -19,9 +19,10 @@ export function Notificaciones({ children }: { children: React.ReactNode }) {
     <Toast.Provider toastManager={gestorNotificaciones} limit={4}>
       {children}
       <Toast.Portal>
+        {/* --barra-inferior: alto de una barra fija inferior (p. ej. la del asistente de cursos), para no taparla. */}
         <Toast.Viewport
           aria-label="Notificaciones"
-          className="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 outline-none sm:inset-x-auto sm:top-auto sm:right-4 sm:bottom-4 sm:w-96 sm:flex-col-reverse"
+          className="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 outline-none sm:inset-x-auto sm:top-auto sm:right-4 sm:bottom-[calc(1rem+var(--barra-inferior,0px))] sm:w-96 sm:flex-col-reverse"
         >
           <Lista />
         </Toast.Viewport>

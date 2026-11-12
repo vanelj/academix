@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, Loader2, Presentation, Search, UserPlus, UsersRound, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Eye, Loader2, Presentation, Search, UserPlus, UsersRound, X } from "lucide-react"
 
 import { DocenteFormDialog } from "@/components/admin/docentes/docente-form-dialog"
 import { EstadoCuenta, EstadoRol } from "@/components/admin/docentes/docente-ui"
@@ -35,6 +35,8 @@ const ETIQUETA_FILTRO: Record<Filtro, string> = {
   deshabilitados: "Deshabilitados",
   pendientes: "Invitación pendiente",
 }
+const POR_PAGINA = 20
+const SIN_GRUPOS = "__sin_grupos__"
 
 export function DocentesPanel({
   docentes,
@@ -47,6 +49,12 @@ export function DocentesPanel({
 }) {
   const [busqueda, setBusqueda] = useState("")
   const [filtro, setFiltro] = useState<Filtro>("todos")
+  const [curso, setCurso] = useState("")
+  const [pagina, setPagina] = useState(0)
+  const cursos = useMemo(
+    () => [...new Map(docentes.flatMap((d) => d.cursosAsignados.map((c) => [c.id, c.nombre] as const))).entries()].sort((a, b) => a[1].localeCompare(b[1], "es")),
+    [docentes]
+  )
   const [registrar, setRegistrar] = useState(false)
   const [asignar, setAsignar] = useState(false)
 
@@ -73,9 +81,14 @@ export function DocentesPanel({
         (filtro === "habilitados" && d.rolActivo && d.perfilActivo) ||
         (filtro === "deshabilitados" && (!d.rolActivo || !d.perfilActivo)) ||
         (filtro === "pendientes" && d.cuenta !== null && !d.cuenta.activada)
-      return coincide && estado
+      const porCurso =
+        curso === "" || (curso === SIN_GRUPOS ? (d.grupos ?? 0) === 0 : d.cursosAsignados.some((c) => c.id === curso))
+      return coincide && estado && porCurso
     })
-  }, [docentes, busqueda, filtro])
+  }, [docentes, busqueda, filtro, curso])
+  const paginas = Math.max(1, Math.ceil(visibles.length / POR_PAGINA))
+  const actual = Math.min(pagina, paginas - 1)
+  const enPagina = visibles.slice(actual * POR_PAGINA, (actual + 1) * POR_PAGINA)
 
   const filtros: Filtro[] = cuentasConfiguradas ? ["todos", "habilitados", "deshabilitados", "pendientes"] : ["todos", "habilitados", "deshabilitados"]
 
@@ -99,7 +112,7 @@ export function DocentesPanel({
             <Input
               type="search"
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => { setBusqueda(e.target.value); setPagina(0) }}
               placeholder="Buscar por nombre, documento o correo"
               aria-label="Buscar docentes"
               className="pl-8"
@@ -122,7 +135,7 @@ export function DocentesPanel({
             <button
               key={valor}
               type="button"
-              onClick={() => setFiltro(valor)}
+              onClick={() => { setFiltro(valor); setPagina(0) }}
               aria-pressed={filtro === valor}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -133,6 +146,21 @@ export function DocentesPanel({
             </button>
           ))}
         </div>
+        {cursos.length > 0 && (
+          <div className="sm:w-80">
+            <label htmlFor="docentes-curso" className="sr-only">Filtrar por curso asignado</label>
+            <select
+              id="docentes-curso"
+              value={curso}
+              onChange={(e) => { setCurso(e.target.value); setPagina(0) }}
+              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Todos los cursos</option>
+              <option value={SIN_GRUPOS}>Sin grupos asignados</option>
+              {cursos.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {docentes.length === 0 ? (
@@ -153,7 +181,7 @@ export function DocentesPanel({
           titulo="Ningún docente coincide"
           texto="Prueba con otro nombre o cambia el filtro."
           accion={
-            <Button variant="outline" onClick={() => { setBusqueda(""); setFiltro("todos") }}>
+            <Button variant="outline" onClick={() => { setBusqueda(""); setFiltro("todos"); setCurso(""); setPagina(0) }}>
               <X aria-hidden />
               Limpiar filtros
             </Button>
@@ -175,7 +203,7 @@ export function DocentesPanel({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibles.map((d) => (
+                {enPagina.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell className="min-w-56 pl-4 whitespace-normal">
                       <Link href={`/admin/docentes/${d.id}`} className="font-medium hover:underline">{d.apellidos}, {d.nombres}</Link>
@@ -186,7 +214,7 @@ export function DocentesPanel({
                     </TableCell>
                     <TableCell className="max-w-56 truncate text-muted-foreground">{d.cuenta?.correo ?? "—"}</TableCell>
                     <TableCell><EstadoCuenta cuenta={d.cuenta} /></TableCell>
-                    <TableCell className="text-center tabular-nums">
+                    <TableCell className="text-center tabular-nums" title={d.cursosAsignados.map((c) => c.nombre).join(", ") || undefined}>
                       {d.grupos ?? "—"}
                       {(d.gruposVigentes ?? 0) > 0 && <span className="block text-xs text-muted-foreground">{d.gruposVigentes} vigentes</span>}
                     </TableCell>
@@ -202,7 +230,7 @@ export function DocentesPanel({
             </Table>
           </Card>
           <ul className="grid gap-3 sm:grid-cols-2 lg:hidden">
-            {visibles.map((d) => (
+            {enPagina.map((d) => (
               <li key={d.id}>
                 <Link href={`/admin/docentes/${d.id}`} className="block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Card size="sm" className="h-full transition-colors hover:bg-muted/40">
@@ -222,6 +250,17 @@ export function DocentesPanel({
               </li>
             ))}
           </ul>
+          {paginas > 1 && (
+            <nav aria-label="Páginas de docentes" className="mt-4 flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {actual * POR_PAGINA + 1}–{Math.min((actual + 1) * POR_PAGINA, visibles.length)} de {visibles.length}
+              </span>
+              <div className="flex gap-1">
+                <Button variant="outline" size="icon-sm" disabled={actual === 0} onClick={() => setPagina(actual - 1)} aria-label="Página anterior"><ChevronLeft aria-hidden /></Button>
+                <Button variant="outline" size="icon-sm" disabled={actual >= paginas - 1} onClick={() => setPagina(actual + 1)} aria-label="Página siguiente"><ChevronRight aria-hidden /></Button>
+              </div>
+            </nav>
+          )}
         </>
       )}
 

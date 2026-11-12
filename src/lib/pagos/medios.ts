@@ -23,27 +23,37 @@ export type MedioCobro = {
   activo: boolean
   orden: number
   actualizado_en: string
+  /** URL pública del QR (Yape/Plin). null = sin QR o migración qr_medios_cobro_v5 pendiente. */
+  qr_url: string | null
 }
 
-export type LecturaMedios = { disponible: true; medios: MedioCobro[] } | { disponible: false }
+export type LecturaMedios = { disponible: true; medios: MedioCobro[]; qrDisponible: boolean } | { disponible: false }
 
 const COLUMNAS = "id, tipo, titular, celular, banco, numero_cuenta, cci, instrucciones, activo, orden, actualizado_en"
 
 /** PostgREST responde PGRST205 (o 42P01) si la tabla aún no existe. */
 export const tablaInexistente = (e: { code?: string } | null) => e?.code === "PGRST205" || e?.code === "42P01"
 
+/** 42703: la columna qr_url aún no existe (migración qr_medios_cobro_v5 pendiente). */
+export const columnaInexistente = (e: { code?: string } | null) => e?.code === "42703"
+
 export async function obtenerMediosCobro(institucionId: string, soloActivos = false): Promise<LecturaMedios> {
   const supabase = await createClient()
-  let consulta = supabase.from("medios_cobro_institucion").select(COLUMNAS).eq("institucion_id", institucionId)
-  if (soloActivos) consulta = consulta.eq("activo", true)
-  const { data, error } = await consulta
-    .order("orden")
-    .order("creado_en")
-    .overrideTypes<MedioCobro[], { merge: false }>()
+  const leer = (columnas: string) => {
+    let consulta = supabase.from("medios_cobro_institucion").select(columnas).eq("institucion_id", institucionId)
+    if (soloActivos) consulta = consulta.eq("activo", true)
+    return consulta.order("orden").order("creado_en").overrideTypes<MedioCobro[], { merge: false }>()
+  }
+  let qrDisponible = true
+  let { data, error } = await leer(`${COLUMNAS}, qr_url`)
+  if (error && columnaInexistente(error)) {
+    qrDisponible = false
+    ;({ data, error } = await leer(COLUMNAS))
+  }
   if (error) {
     if (tablaInexistente(error)) return { disponible: false }
     console.error("[medios] lectura", error.code, error.message)
     throw new Error("No se pudieron cargar los medios de cobro.")
   }
-  return { disponible: true, medios: data ?? [] }
+  return { disponible: true, qrDisponible, medios: (data ?? []).map((m) => ({ ...m, qr_url: m.qr_url ?? null })) }
 }

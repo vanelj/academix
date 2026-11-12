@@ -49,6 +49,12 @@ export function GrupoForm({
   const editando = Boolean(grupoId)
   const [guardando, setGuardando] = useState(false)
   const bloqueo = useRef(false)
+  // Por referencia: una función nueva en cada render del padre no debe recrear
+  // `persistir` ni volver a registrar el guardado (eso provocaba un bucle infinito).
+  const alGuardado = useRef(onGuardado)
+  useEffect(() => {
+    alGuardado.current = onGuardado
+  }, [onGuardado])
 
   const form = useForm<GrupoValues>({
     resolver: zodResolver(grupoSchema),
@@ -82,7 +88,7 @@ export function GrupoForm({
               descripcion: editando ? undefined : "Agrega sus horarios y ábrelo a inscripciones cuando esté listo.",
             })
         }
-        if (onGuardado) onGuardado(r.id)
+        if (alGuardado.current) alGuardado.current(r.id)
         else router.push(`/admin/grupos/${r.id}`)
         router.refresh()
         return { ok: true, guardado: true, avisos: r.aviso ? [r.aviso] : undefined }
@@ -102,7 +108,7 @@ export function GrupoForm({
       bloqueo.current = false
       setGuardando(false)
     }
-  }, [editando, form, grupoId, onGuardado, router])
+  }, [editando, form, grupoId, router])
 
   const guardarDesdeAsistente = useCallback<GuardadorAsistente>(async () => {
     let resultado: ResultadoGuardadoAsistente = { ok: false, mensaje: "Corrige los campos indicados." }
@@ -201,7 +207,7 @@ export function GrupoForm({
                         <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
                         {field.value
                           ? "Vas a cambiar el docente de un grupo vigente. Avisa al docente anterior y a los estudiantes."
-                          : "Vas a dejar sin docente un grupo vigente. Asigna uno antes de que continúen las clases."}
+                          : "Vas a dejar el grupo sin docente: los estudiantes verán «Docente por asignar». Asigna uno antes de iniciar las clases."}
                       </p>
                     )}
                     {actual && !actual.habilitado ? (

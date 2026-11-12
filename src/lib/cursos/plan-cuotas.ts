@@ -26,13 +26,17 @@ type Fallo = Extract<ResultadoPlan, { ok: false }>
 
 const SIN_PERMISO: Fallo = { ok: false, gravedad: "error", mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
 const NO_ENCONTRADO: Fallo = { ok: false, gravedad: "error", mensaje: "La cuota o el curso no existen o no pertenecen a tu institución. Recarga la página." }
-const ids = z.object({ cursoId: z.uuid(), cuotaId: z.uuid().nullable() })
+const ids = z.object({ cursoId: z.uuid(), cuotaId: z.uuid().nullable(), idCliente: z.uuid().optional() })
 
-/** Crea (cuotaId null) o actualiza una cuota del plan. */
-export async function guardarCuotaPlan(cursoId: unknown, cuotaId: unknown, datos: unknown): Promise<ResultadoPlan> {
+/**
+ * Crea (cuotaId null) o actualiza una cuota del plan.
+ * `idCliente` (opcional, solo al crear): id generado por el asistente. Si un
+ * intento anterior ya creó esa cuota, se actualiza en lugar de duplicarla.
+ */
+export async function guardarCuotaPlan(cursoId: unknown, cuotaId: unknown, datos: unknown, idCliente?: unknown): Promise<ResultadoPlan> {
   const institucionId = await institucionDelAdmin()
   if (!institucionId) return SIN_PERMISO
-  const id = ids.safeParse({ cursoId, cuotaId })
+  const id = ids.safeParse({ cursoId, cuotaId, idCliente })
   if (!id.success) return NO_ENCONTRADO
   const v = cuotaPlanSchema.safeParse(datos)
   if (!v.success) {
@@ -55,18 +59,25 @@ export async function guardarCuotaPlan(cursoId: unknown, cuotaId: unknown, datos
     return { ok: false, gravedad: "advertencia", mensaje: "El plan de cuotas solo se usa cuando el tipo de cobro del curso es «En cuotas»." }
   }
 
+  let cuotaExistente = id.data.cuotaId
+  if (!cuotaExistente && id.data.idCliente) {
+    const previa = await cuotaDelCurso(supabase, institucionId, id.data.cursoId, id.data.idCliente)
+    if (previa === "error") return fallo({ message: "lectura de la cuota" })
+    if (previa) cuotaExistente = id.data.idCliente
+  }
+
   const fila = cuotaPlanParaGuardar(v.data)
-  const { data, error } = id.data.cuotaId
+  const { data, error } = cuotaExistente
     ? await supabase
         .from("plan_cuotas")
         .update(fila)
-        .eq("id", id.data.cuotaId)
+        .eq("id", cuotaExistente)
         .eq("curso_id", id.data.cursoId)
         .eq("institucion_id", institucionId)
         .select("id")
     : await supabase
         .from("plan_cuotas")
-        .insert({ ...fila, curso_id: id.data.cursoId, institucion_id: institucionId })
+        .insert({ ...(id.data.idCliente ? { id: id.data.idCliente } : {}), ...fila, curso_id: id.data.cursoId, institucion_id: institucionId })
         .select("id")
   if (error) return fallo(error)
   if (!data?.length) return NO_ENCONTRADO
@@ -92,6 +103,21 @@ export async function eliminarCuotaPlan(cursoId: unknown, cuotaId: unknown): Pro
   if (!data?.length) return NO_ENCONTRADO
   revalidar(id.data.cursoId)
   return { ok: true, id: id.data.cuotaId }
+}
+
+async function cuotaDelCurso(supabase: Awaited<ReturnType<typeof createClient>>, institucionId: string, cursoId: string, cuotaId: string) {
+  const { data, error } = await supabase
+    .from("plan_cuotas")
+    .select("id")
+    .eq("id", cuotaId)
+    .eq("curso_id", cursoId)
+    .eq("institucion_id", institucionId)
+    .maybeSingle()
+  if (error) {
+    console.error("[plan-cuotas] cuota", error.code, error.message)
+    return "error" as const
+  }
+  return data
 }
 
 function revalidar(cursoId: string) {

@@ -28,7 +28,7 @@ export default async function PagarPage({ searchParams }: PageProps<"/estudiante
   const volver = (
     <Link href="/estudiante/pagos" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-4 w-fit")}>
       <ArrowLeft aria-hidden />
-      Mis pagos y cuotas
+      Mis compras y pagos
     </Link>
   )
 

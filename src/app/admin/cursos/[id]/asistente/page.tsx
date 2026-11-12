@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { buttonVariants } from "@/components/ui/button"
 import { requerirPanel } from "@/lib/auth/contexto"
 import { obtenerDatosAsistente } from "@/lib/cursos/asistente"
-import type { NumeroPaso } from "@/lib/cursos/asistente-logica"
+import { TOTAL_PASOS, type NumeroPaso } from "@/lib/cursos/asistente-logica"
 import { idCursoSchema } from "@/lib/validations/curso"
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default async function AsistenteCursoPage({ params, searchParams }: PageP
   if (!datos?.curso) notFound()
 
   const n = Number(Array.isArray(sp.paso) ? sp.paso[0] : sp.paso)
-  const paso = (Number.isInteger(n) && n >= 1 && n <= 6 ? n : 1) as NumeroPaso
+  const paso = (Number.isInteger(n) && n >= 1 && n <= TOTAL_PASOS ? n : 1) as NumeroPaso
 
   return (
     <>

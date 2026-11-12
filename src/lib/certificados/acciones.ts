@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { institucionDelAdmin } from "@/lib/auth/contexto"
-import { BUCKET_EMITIDOS, BUCKET_RECURSOS, MODALIDADES, TAMANO_MAX_FIRMA, TAMANO_MAX_FONDO, VIGENCIA_ENLACE_CERTIFICADO } from "@/lib/certificados/config"
+import { BUCKET_EMITIDOS, BUCKET_RECURSOS, TAMANO_MAX_FIRMA, TAMANO_MAX_FONDO, VIGENCIA_ENLACE_CERTIFICADO } from "@/lib/certificados/config"
 import { leerContenido, tablaInexistente } from "@/lib/certificados/datos"
 import { camposPredeterminados, disenoSchema } from "@/lib/certificados/diseno"
 import { pdfEmitido } from "@/lib/certificados/emision"
 import { BUCKET_COMPROBANTES, MOTIVO_REVISION_DESHABILITADA, REVISION_PAGOS_HABILITADA, TIPOS_COMPROBANTE, tipoPorFirma, VIGENCIA_ENLACE_COMPROBANTE } from "@/lib/pagos/config"
 import { esErrorDeRed } from "@/lib/registro/errores"
+import { certCursoSchema } from "@/lib/validations/certificacion-curso"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -215,22 +216,6 @@ export async function enlaceRecurso(ruta: unknown): Promise<ResultadoCert> {
 // ---------------------------------------------------------------------------
 // Certificación por curso
 // ---------------------------------------------------------------------------
-
-const certCursoSchema = z
-  .object({
-    modalidad: z.enum(MODALIDADES),
-    importe: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Importe no válido.").or(z.literal("")),
-    nota_minima: z.string().trim().regex(/^\d{1,2}(\.\d{1,2})?$/, "Nota no válida.").or(z.literal("")),
-    horas_academicas: z.string().trim().regex(/^\d{1,5}$/, "Introduce un número entero de horas.").or(z.literal("")),
-    requisitos_adicionales: z.string().trim().max(2000, "Máximo 2000 caracteres."),
-    plantilla_id: uuid.nullable(),
-    firmante_id: uuid.nullable(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.modalidad === "costo_adicional" && !(Number(v.importe) > 0)) ctx.addIssue({ code: "custom", path: ["importe"], message: "Indica el importe del certificado." })
-    if (v.nota_minima !== "" && Number(v.nota_minima) > 20) ctx.addIssue({ code: "custom", path: ["nota_minima"], message: "La nota máxima es 20." })
-    if (v.horas_academicas !== "" && (Number(v.horas_academicas) < 1 || Number(v.horas_academicas) > 10000)) ctx.addIssue({ code: "custom", path: ["horas_academicas"], message: "Entre 1 y 10 000 horas." })
-  })
 
 export async function guardarCertificacionCurso(cursoId: unknown, datos: unknown): Promise<ResultadoCert> {
   const institucionId = await institucionDelAdmin()

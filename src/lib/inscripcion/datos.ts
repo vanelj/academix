@@ -90,8 +90,7 @@ export async function obtenerDetalleCurso(cursoId: string): Promise<DetalleCurso
   if (!curso) return null
 
   const [grupos, condiciones, politicas, certificacion, portada] = await Promise.all([
-    supabase.from("oferta_grupos").select("id, codigo, fecha_inicio, fecha_fin, estado, vacantes_disponibles, docente").eq("curso_id", cursoId).order("fecha_inicio")
-      .overrideTypes<Omit<GrupoOferta, "horarios">[], { merge: false }>(),
+    gruposDeOferta(supabase, cursoId),
     supabase.from("oferta_condiciones")
       .select("tipo_cobro, matricula_importe, importe_curso, permite_reserva, reserva_importe, reserva_plazo_horas, reserva_descuenta_matricula, requisitos, condiciones_especiales")
       .eq("curso_id", cursoId).maybeSingle()
@@ -142,6 +141,22 @@ export async function obtenerDetalleCurso(cursoId: string): Promise<DetalleCurso
       ? { ...certificacion.data, importe: num(certificacion.data.importe), nota_minima: certificacion.data.nota_minima === null ? null : num(certificacion.data.nota_minima) }
       : null,
   }
+}
+
+/**
+ * Grupos públicos del curso. Sin sesión (rol anon), oferta_grupos falla con 42501
+ * al calcular vacantes_disponibles mientras no se aplique oferta_grupos_anon_v5:
+ * entonces se leen los grupos sin esa columna (vacantes = null, no se muestran).
+ * Con sesión de estudiante, la consulta completa funciona.
+ */
+async function gruposDeOferta(supabase: Awaited<ReturnType<typeof createClient>>, cursoId: string) {
+  const leer = (columnas: string) =>
+    supabase.from("oferta_grupos").select(columnas).eq("curso_id", cursoId).order("fecha_inicio")
+      .overrideTypes<Omit<GrupoOferta, "horarios">[], { merge: false }>()
+  const completa = await leer("id, codigo, fecha_inicio, fecha_fin, estado, vacantes_disponibles, docente")
+  if (completa.error?.code !== "42501") return completa
+  const parcial = await leer("id, codigo, fecha_inicio, fecha_fin, estado, docente")
+  return parcial.error ? parcial : { ...parcial, data: (parcial.data ?? []).map((g) => ({ ...g, vacantes_disponibles: null })) }
 }
 
 export type MiSolicitud = {

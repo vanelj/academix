@@ -2,6 +2,7 @@ import type { EmailOtpType } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { NextResponse, type NextRequest } from "next/server"
 
+import { activacionPendiente } from "@/lib/auth/activacion"
 import { registrarErrorAuth } from "@/lib/auth/errores-auth"
 import { COOKIE_RECUPERACION, MINUTOS_RECUPERACION } from "@/lib/auth/recuperacion"
 import { createClient } from "@/lib/supabase/server"
@@ -41,8 +42,10 @@ export async function verificarEnlace(request: NextRequest, modoRuta: Modo) {
   const tokenHash = params.get("token_hash")
   const tipo = params.get("type") as EmailOtpType | null
 
-  // Un enlace de recuperación que llegue a /auth/confirmar se trata como recuperación.
-  const modo: Modo = tipo === "recovery" ? "recuperacion" : modoRuta
+  // Un enlace de recuperación o de invitación que llegue a otra ruta (p. ej. desde
+  // la Site URL vía proxy → /auth/confirmar) se atiende según su tipo real. La
+  // activación solo permite crear la contraseña: no concede roles.
+  const modo: Modo = tipo === "recovery" ? "recuperacion" : tipo === "invite" ? "activacion" : modoRuta
 
   const ir = (ruta: string) => {
     const respuesta = NextResponse.redirect(new URL(ruta, request.url))
@@ -97,6 +100,12 @@ async function destinoConSesion(modo: Modo, ir: (ruta: string) => NextResponse) 
   if (!sub) return ir(`${AVISOS[modo].base}?aviso=enlace-invalido`)
 
   // Activación y recuperación comparten la marca: ambas terminan creando una contraseña.
+  await ponerMarcaContrasena(sub)
+  return ir(modo === "activacion" ? "/activar-cuenta" : "/restablecer-contrasena")
+}
+
+/** Marca httpOnly «puede crear contraseña» para el usuario `sub` (15 min). */
+export async function ponerMarcaContrasena(sub: string) {
   const almacen = await cookies()
   almacen.set(COOKIE_RECUPERACION, sub, {
     httpOnly: true,
@@ -105,7 +114,6 @@ async function destinoConSesion(modo: Modo, ir: (ruta: string) => NextResponse) 
     path: "/",
     maxAge: MINUTOS_RECUPERACION * 60,
   })
-  return ir(modo === "activacion" ? "/activar-cuenta" : "/restablecer-contrasena")
 }
 
 /**
@@ -121,4 +129,19 @@ export async function usuarioEnRecuperacion(): Promise<string | null> {
   const { data } = await supabase.auth.getClaims()
   const sub = data?.claims?.sub
   return sub && sub === marca ? sub : null
+}
+
+/**
+ * Usuario que puede crear su primera contraseña, o null: sesión de recuperación
+ * válida (enlace verificado) o cuenta con la activación pendiente (marca en
+ * app_metadata, que solo escribe el servidor). La usan /activar-cuenta y
+ * actualizarContrasena.
+ */
+export async function usuarioEnActivacion(): Promise<string | null> {
+  const enRecuperacion = await usuarioEnRecuperacion()
+  if (enRecuperacion) return enRecuperacion
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getClaims()
+  const claims = data?.claims
+  return claims?.sub && activacionPendiente(claims) ? claims.sub : null
 }

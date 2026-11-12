@@ -1,4 +1,5 @@
 import type { Role } from "@/config/navigation"
+import { MARCA_ACTIVACION } from "@/lib/auth/activacion"
 import { clienteAdministrativo } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -37,6 +38,8 @@ export type DocenteResumen = {
   otrosRoles: Role[]
   grupos: number | null
   gruposVigentes: number | null
+  /** Cursos de sus grupos (para filtrar el directorio). */
+  cursosAsignados: { id: string; nombre: string }[]
   /** null = no se pudo consultar (p. ej. falta la clave secreta). */
   cuenta: CuentaDocente | null
 }
@@ -77,7 +80,8 @@ async function cuentas(ids: string[]): Promise<Map<string, CuentaDocente>> {
     const u = data.user
     mapa.set(ids[i], {
       correo: u.email ?? null,
-      activada: Boolean(u.email_confirmed_at),
+      // Activada = correo confirmado y contraseña creada (sin la marca de activación pendiente).
+      activada: Boolean(u.email_confirmed_at) && u.app_metadata?.[MARCA_ACTIVACION] !== true,
       invitadoEn: u.invited_at ?? null,
       ultimoAcceso: u.last_sign_in_at ?? null,
     })
@@ -110,10 +114,10 @@ export async function obtenerDocentes(institucionId: string): Promise<DocenteRes
       .overrideTypes<FilaPerfil[], { merge: false }>(),
     supabase
       .from("grupos")
-      .select("docente_id, estado")
+      .select("docente_id, estado, curso_id")
       .eq("institucion_id", institucionId)
       .in("docente_id", ids)
-      .overrideTypes<{ docente_id: string; estado: string }[], { merge: false }>(),
+      .overrideTypes<{ docente_id: string; estado: string; curso_id: string }[], { merge: false }>(),
     cuentas(ids),
   ])
   if (perfiles.error) {
@@ -124,6 +128,12 @@ export async function obtenerDocentes(institucionId: string): Promise<DocenteRes
 
   const porPerfil = new Map((perfiles.data ?? []).map((p) => [p.id, p]))
   const admin = clienteAdministrativo()
+  const cursoIds = [...new Set((grupos.data ?? []).map((g) => g.curso_id))]
+  const { data: cursos } = cursoIds.length
+    ? await supabase.from("cursos").select("id, nombre").eq("institucion_id", institucionId).in("id", cursoIds)
+        .overrideTypes<{ id: string; nombre: string }[], { merge: false }>()
+    : { data: [] as { id: string; nombre: string }[] }
+  const nombreCurso = new Map((cursos ?? []).map((c) => [c.id, c.nombre]))
 
   return docentes
     .map((rol): DocenteResumen | null => {
@@ -138,6 +148,7 @@ export async function obtenerDocentes(institucionId: string): Promise<DocenteRes
         otrosRoles: (roles ?? []).filter((r) => r.perfil_id === perfil.id && r.rol !== "docente").map((r) => r.rol),
         grupos: grupos.error ? null : suyos.length,
         gruposVigentes: grupos.error ? null : suyos.filter((g) => VIGENTES.includes(g.estado)).length,
+        cursosAsignados: [...new Set(suyos.map((g) => g.curso_id))].map((id) => ({ id, nombre: nombreCurso.get(id) ?? "Curso" })),
         cuenta: admin ? (mapaCuentas.get(perfil.id) ?? null) : null,
       }
     })

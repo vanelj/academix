@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import { AcademixUIProvider } from "@/academix/context/AcademixUIProvider"
-import type { ImageComponent, LinkComponent, PublicRoutes } from "@/academix/types"
+import type { ImageComponent, LinkComponent, PublicAccount, PublicRoutes } from "@/academix/types"
 
 // Adaptadores de Next para el kit Academix Vibrant: los componentes de src/academix
 // no importan next/link ni next/image, los reciben de aquí.
@@ -31,9 +31,9 @@ const routes: PublicRoutes = {
   institutionCourses: "/cursos?institucion=:id",
 }
 
-export function AcademixProviders({ children }: { children: ReactNode }) {
+export function AcademixProviders({ children, cuenta = null }: { children: ReactNode; cuenta?: PublicAccount | null }) {
   return (
-    <AcademixUIProvider LinkComponent={NextLink} ImageComponent={NextImage} routes={routes}>
+    <AcademixUIProvider LinkComponent={NextLink} ImageComponent={NextImage} routes={routes} account={cuenta}>
       {children}
     </AcademixUIProvider>
   )

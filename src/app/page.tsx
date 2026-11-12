@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 
+import { DesvioInvitacion } from "@/components/auth/desvio-invitacion"
 import { AcademixPublico } from "@/components/public/academix-publico"
 import {
   AxCabecera,
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <AcademixPublico>
+      <DesvioInvitacion />
       <AxCabecera activa="home" />
       <main>
         <InicioHero />

@@ -1,6 +1,8 @@
+import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { PageHeader } from "@/components/layout/page-header"
+import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { getNavItems, roleConfig, type Role } from "@/config/navigation"
 
@@ -36,6 +38,11 @@ export function SeccionEnPreparacion({ rol, seccion }: { rol: Role; seccion: str
               Esta sección se desarrollará en una etapa posterior.
             </p>
           </div>
+          {item.mientras && (
+            <Link href={item.mientras.href} className={buttonVariants({ variant: "outline" })}>
+              Mientras tanto, consulta «{item.mientras.titulo}»
+            </Link>
+          )}
         </CardContent>
       </Card>
     </>

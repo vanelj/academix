@@ -1,8 +1,8 @@
 'use client';
 
-import { Menu, Moon, Sun, X } from 'lucide-react';
+import { LayoutDashboard, Menu, Moon, Sun, X } from 'lucide-react';
 import { useState } from 'react';
-import { AnchorLink } from '../../context/AcademixUIProvider';
+import { AnchorLink, useAcademixUI } from '../../context/AcademixUIProvider';
 import { cn } from '../../lib/cn';
 import type { LinkComponent, PublicRoutes } from '../../types';
 import { buttonClasses } from '../ui/Button';
@@ -25,7 +25,11 @@ const iconBtn =
 export function SiteHeader({ routes, active, linkComponent: L = AnchorLink }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useAcademixTheme();
+  const { account } = useAcademixUI();
   const dark = theme === 'dark';
+  const initials = account
+    ? account.name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?'
+    : '';
 
   const items: Array<{ key: PublicSection; label: string; href: string }> = [
     { key: 'home', label: 'Inicio', href: routes.home },
@@ -60,12 +64,22 @@ export function SiteHeader({ routes, active, linkComponent: L = AnchorLink }: Si
           <button type="button" className={iconBtn} aria-label={dark ? 'Activar modo claro' : 'Activar modo oscuro'} onClick={toggleTheme}>
             {dark ? <Sun aria-hidden size={20} /> : <Moon aria-hidden size={20} />}
           </button>
-          <L href={routes.login} className={buttonClasses('outline', 'sm', 'max-[900px]:hidden')}>
-            Iniciar sesión
-          </L>
-          <L href={routes.registerInstitution} className={buttonClasses('yellow', 'sm', 'max-[900px]:hidden')}>
-            Registrar institución
-          </L>
+          {account ? (
+            // Con sesión: acceso directo a su panel (la sesión se conserva al navegar por el catálogo).
+            <L href={account.panelHref} className={buttonClasses('primary', 'sm', 'max-[900px]:hidden')} aria-label={`${account.panelLabel} (${account.name}, ${account.roleLabel})`}>
+              <span aria-hidden className="inline-flex size-6 items-center justify-center rounded-full bg-ax-surface text-[11px] font-bold text-ax-violet-text">{initials}</span>
+              {account.panelLabel}
+            </L>
+          ) : (
+            <>
+              <L href={routes.login} className={buttonClasses('outline', 'sm', 'max-[900px]:hidden')}>
+                Iniciar sesión
+              </L>
+              <L href={routes.registerInstitution} className={buttonClasses('yellow', 'sm', 'max-[900px]:hidden')}>
+                Registrar institución
+              </L>
+            </>
+          )}
           <button
             type="button"
             className={cn(iconBtn, 'min-[900px]:hidden')}
@@ -92,12 +106,26 @@ export function SiteHeader({ routes, active, linkComponent: L = AnchorLink }: Si
             </L>
           ))}
           <div className="mt-2 flex flex-col gap-2.5">
-            <L href={routes.login} className={buttonClasses('outline', 'md')}>
-              Iniciar sesión
-            </L>
-            <L href={routes.registerInstitution} className={buttonClasses('yellow', 'md')}>
-              Registrar institución
-            </L>
+            {account ? (
+              <>
+                <p className="px-3.5 text-sm text-ax-muted">
+                  Sesión iniciada como <span className="font-semibold text-ax-ink">{account.name}</span> · {account.roleLabel}
+                </p>
+                <L href={account.panelHref} className={buttonClasses('primary', 'md')}>
+                  <LayoutDashboard aria-hidden size={18} />
+                  {account.panelLabel}
+                </L>
+              </>
+            ) : (
+              <>
+                <L href={routes.login} className={buttonClasses('outline', 'md')}>
+                  Iniciar sesión
+                </L>
+                <L href={routes.registerInstitution} className={buttonClasses('yellow', 'md')}>
+                  Registrar institución
+                </L>
+              </>
+            )}
           </div>
         </nav>
       ) : null}

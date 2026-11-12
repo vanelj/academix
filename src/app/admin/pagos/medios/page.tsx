@@ -19,7 +19,7 @@ export default async function MediosCobroPage() {
 
   const encabezado = (
     <>
-      <PageHeader title="Pagos y mensualidades" description="Comprobantes presentados por los estudiantes y cuotas de las matrículas de tu institución." />
+      <PageHeader title="Pagos" description="Comprobantes de las compras de cursos y certificados que envían tus estudiantes." />
       <PagosTabs actual="medios" />
     </>
   )
@@ -53,7 +53,7 @@ export default async function MediosCobroPage() {
         Academix no recibe ni retiene dinero: el estudiante paga directamente a estas cuentas y sube su comprobante. Antes de aprobar,
         confirma el ingreso en tu banco o aplicación.
       </p>
-      <MediosPanel medios={lectura.medios} />
+      <MediosPanel medios={lectura.medios} qrDisponible={lectura.qrDisponible} />
     </>
   )
 }

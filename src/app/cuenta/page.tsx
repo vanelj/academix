@@ -17,6 +17,7 @@ export default async function CuentaPage() {
   const ctx = await obtenerContexto()
 
   if (ctx.estado === "sin_sesion") redirect("/login")
+  if (ctx.activacionPendiente) redirect("/activar-cuenta")
   if (ctx.estado === "sin_perfil") redirect("/completar-registro")
 
   const destino = destinoSegunContexto(ctx)

@@ -185,7 +185,7 @@ export default async function SolicitudPage({ params }: PageProps<"/admin/solici
               )}
               <p className="flex gap-2 text-xs text-muted-foreground">
                 <Lock className="mt-px size-3.5 shrink-0" aria-hidden />
-                Los comprobantes se consultan y revisan desde el módulo «Pagos y mensualidades».
+                Los comprobantes se consultan y revisan desde el módulo «Pagos».
               </p>
             </CardContent>
           </Card>

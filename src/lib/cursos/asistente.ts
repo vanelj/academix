@@ -1,6 +1,7 @@
-import { obtenerCertificacionCurso } from "@/lib/certificados/datos"
+import { obtenerCertificacionCurso, obtenerRecursosCertificado } from "@/lib/certificados/datos"
 import { obtenerCategoriasParaCurso, obtenerCurso, obtenerPlanCuotas, type CategoriaOpcion, type CursoDetalle, type CuotaPlan } from "@/lib/cursos/datos"
 import { obtenerGrupo, obtenerGrupos, opcionesDocentes, type GrupoDetalle, type OpcionDocente } from "@/lib/grupos/datos"
+import { obtenerInstitucion } from "@/lib/institucion/datos"
 import { createClient } from "@/lib/supabase/server"
 import { CONDICIONES_INICIALES, CURSO_INICIAL, type CursoValues } from "@/lib/validations/curso"
 
@@ -22,6 +23,8 @@ export type DatosAsistente = {
   gruposError: boolean
   docentes: OpcionDocente[]
   certificacion: Awaited<ReturnType<typeof obtenerCertificacionCurso>>
+  /** Para las miniaturas de las plantillas de certificado (datos de demostración). */
+  institucion: { nombre: string; logo_url: string | null }
 }
 
 const texto = (n: number) => String(n)
@@ -79,7 +82,14 @@ export async function obtenerDatosAsistente(institucionId: string, cursoId: stri
       : categoriasBase
 
   if (!curso) {
-    const portada = await leerPortada(institucionId, null)
+    // Curso nuevo: todo se configura antes de guardar, así que también hacen falta
+    // los docentes y los recursos de certificación de la institución.
+    const [portada, docentes, recursos, institucion] = await Promise.all([
+      leerPortada(institucionId, null),
+      opcionesDocentes(institucionId).catch(() => [] as OpcionDocente[]),
+      obtenerRecursosCertificado(institucionId).catch(() => ({ disponible: false as const })),
+      datosInstitucion(institucionId),
+    ])
     return {
       categorias,
       curso: null,
@@ -88,12 +98,13 @@ export async function obtenerDatosAsistente(institucionId: string, cursoId: stri
       plan: null,
       grupos: [],
       gruposError: false,
-      docentes: [],
-      certificacion: { disponible: false },
+      docentes,
+      certificacion: recursos.disponible ? { disponible: true, config: null, plantillas: recursos.plantillas, firmantes: recursos.firmantes } : { disponible: false },
+      institucion,
     }
   }
 
-  const [portada, plan, todos, docentes, certificacion] = await Promise.all([
+  const [portada, plan, todos, docentes, certificacion, institucion] = await Promise.all([
     leerPortada(institucionId, curso.id),
     curso.condiciones?.tipo_cobro === "cuotas" ? obtenerPlanCuotas(institucionId, curso.id) : Promise.resolve(null),
     obtenerGrupos(institucionId).then(
@@ -102,6 +113,7 @@ export async function obtenerDatosAsistente(institucionId: string, cursoId: stri
     ),
     opcionesDocentes(institucionId).catch(() => [] as OpcionDocente[]),
     obtenerCertificacionCurso(institucionId, curso.id).catch(() => ({ disponible: false as const })),
+    datosInstitucion(institucionId),
   ])
 
   // Detalle (horarios con enlace y dependencias) de los grupos de ESTE curso.
@@ -117,5 +129,11 @@ export async function obtenerDatosAsistente(institucionId: string, cursoId: stri
     gruposError: todos === null || detalles.some((g) => g === null),
     docentes,
     certificacion,
+    institucion,
   }
+}
+
+async function datosInstitucion(institucionId: string) {
+  const inst = await obtenerInstitucion(institucionId).catch(() => null)
+  return { nombre: inst?.nombre ?? "Tu institución", logo_url: inst?.logo_url ?? null }
 }

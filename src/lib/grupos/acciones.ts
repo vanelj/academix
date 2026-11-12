@@ -30,7 +30,7 @@ import {
  */
 
 export type ResultadoGrupo =
-  | { ok: true; id: string; aviso?: string }
+  | { ok: true; id: string; aviso?: string; /** El grupo ya existía con ese id (reintento de una creación). */ existente?: boolean }
   | {
       ok: false
       mensaje: string
@@ -50,13 +50,21 @@ const VIGENTES: EstadoGrupo[] = ["programado", "abierto", "en_curso"]
 // Grupos
 // ---------------------------------------------------------------------------
 
-export async function crearGrupo(datos: unknown): Promise<ResultadoGrupo> {
+/** `idCliente` (opcional): como en crearCurso, un reintento con el mismo id no duplica el grupo. */
+export async function crearGrupo(datos: unknown, idCliente?: unknown): Promise<ResultadoGrupo> {
   const institucionId = await institucionDelAdmin()
   if (!institucionId) return SIN_PERMISO
   const v = grupoSchema.safeParse(datos)
-  if (!v.success) return DATOS_INVALIDOS
+  const idPropio = idCliente === undefined ? { success: true as const, data: undefined } : idSchema.safeParse(idCliente)
+  if (!v.success || !idPropio.success) return DATOS_INVALIDOS
 
   const supabase = await createClient()
+  if (idPropio.data) {
+    const previo = await grupoDeInstitucion(supabase, institucionId, idPropio.data)
+    if (previo === "error") return falloBD({ message: "lectura del grupo" })
+    if (previo) return previo.curso_id === v.data.curso_id ? { ok: true, id: idPropio.data, existente: true } : DATOS_INVALIDOS
+  }
+
   const { data: curso } = await supabase
     .from("cursos")
     .select("id, estado")
@@ -70,13 +78,21 @@ export async function crearGrupo(datos: unknown): Promise<ResultadoGrupo> {
   const { data, error } = await supabase
     .from("grupos")
     .insert({
+      ...(idPropio.data ? { id: idPropio.data } : {}),
       institucion_id: institucionId,
       curso_id: v.data.curso_id,
       ...grupoParaGuardar(v.data),
       docente_id: v.data.docente_id === "" ? null : v.data.docente_id,
     })
     .select("id")
-  if (error) return falloBD(error)
+  if (error) {
+    // Dos intentos simultáneos con el mismo id: el otro ya lo creó.
+    if (error.code === "23505" && idPropio.data) {
+      const previo = await grupoDeInstitucion(supabase, institucionId, idPropio.data)
+      if (previo && previo !== "error" && previo.curso_id === v.data.curso_id) return { ok: true, id: idPropio.data, existente: true }
+    }
+    return falloBD(error)
+  }
   const id = data?.[0]?.id as string | undefined
   if (!id) return SIN_PERMISO
 
@@ -130,13 +146,71 @@ export async function editarGrupo(id: unknown, datos: unknown): Promise<Resultad
         .eq("grupo_id", grupoId)
         .eq("institucion_id", institucionId)
       aviso = await cruceDelDocente(supabase, institucionId, nuevoDocente, { id: grupoId, ...grupoParaGuardar(v.data) }, franjas ?? [])
-    } else if (VIGENTES.includes(actual.estado) && actual.estado !== "programado") {
-      aviso = "El grupo quedó sin docente estando vigente. Asigna uno antes de que continúen las clases."
+    } else if (actual.estado === "en_curso") {
+      aviso = "El grupo quedó sin docente con las clases en curso. Asigna uno lo antes posible."
+    } else if (actual.estado === "abierto") {
+      aviso = "El grupo sigue recibiendo inscripciones con «Docente por asignar». Asigna uno antes de iniciar las clases."
     }
   }
 
   revalidarGrupos(grupoId)
   return { ok: true, id: grupoId, aviso }
+}
+
+/**
+ * Asigna, cambia o retira (docenteId = null) el docente responsable de UN grupo.
+ * Es la única acción de asignación: la usan la ficha del grupo y la ficha del
+ * docente («Asignar grupo»). Solo cambia grupos.docente_id; el disparador
+ * validar_docente_grupo vuelve a comprobar en la BD que el docente sea de la
+ * institución, esté activo y tenga el rol docente habilitado.
+ */
+export async function asignarDocente(grupoId: unknown, docenteId: unknown): Promise<ResultadoGrupo> {
+  const institucionId = await institucionDelAdmin()
+  if (!institucionId) return SIN_PERMISO
+  const g = idSchema.safeParse(grupoId)
+  const d = docenteId === null ? { success: true as const, data: null } : idSchema.safeParse(docenteId)
+  if (!g.success || !d.success) return DATOS_INVALIDOS
+
+  const supabase = await createClient()
+  const actual = await grupoDeInstitucion(supabase, institucionId, g.data)
+  if (actual === "error") return falloBD({ message: "lectura del grupo" })
+  if (!actual) return NO_ENCONTRADO
+  if (actual.estado === "cerrado" || actual.estado === "cancelado") {
+    return { ok: false, gravedad: "advertencia", mensaje: "El grupo está cerrado o cancelado: ya no se cambia su docente." }
+  }
+  if (actual.docente_id === d.data) return { ok: true, id: g.data }
+
+  if (d.data) {
+    const [rol, perfil] = await Promise.all([
+      supabase.from("usuario_roles").select("activo").eq("perfil_id", d.data).eq("rol", "docente").eq("institucion_id", institucionId).maybeSingle(),
+      supabase.from("perfiles").select("activo").eq("id", d.data).eq("institucion_id", institucionId).maybeSingle(),
+    ])
+    if (rol.error || perfil.error) return falloBD({ message: "comprobación del docente" })
+    if (!rol.data?.activo || !perfil.data?.activo) {
+      return { ok: false, gravedad: "advertencia", campo: "docente_id", mensaje: "Ese docente no está habilitado en tu institución." }
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("grupos")
+    .update({ docente_id: d.data })
+    .eq("id", g.data)
+    .eq("institucion_id", institucionId)
+    .select("id")
+  if (error) return falloBD(error)
+  if (!data?.length) return NO_ENCONTRADO
+
+  let aviso: string | undefined
+  if (d.data) {
+    const { data: franjas } = await supabase.from("horarios").select("dia_semana, hora_inicio, hora_fin").eq("grupo_id", g.data).eq("institucion_id", institucionId)
+    aviso = await cruceDelDocente(supabase, institucionId, d.data, { id: g.data, fecha_inicio: actual.fecha_inicio, fecha_fin: actual.fecha_fin }, franjas ?? [])
+  } else if (actual.estado === "en_curso") {
+    aviso = "El grupo quedó sin docente con las clases en curso. Asigna uno lo antes posible."
+  }
+  revalidarGrupos(g.data)
+  if (actual.docente_id) revalidatePath(`/admin/docentes/${actual.docente_id}`)
+  if (d.data) revalidatePath(`/admin/docentes/${d.data}`)
+  return { ok: true, id: g.data, aviso }
 }
 
 export async function cambiarEstadoGrupo(id: unknown, estado: unknown): Promise<ResultadoGrupo> {
@@ -158,12 +232,14 @@ export async function cambiarEstadoGrupo(id: unknown, estado: unknown): Promise<
     return { ok: false, gravedad: "advertencia", mensaje: "Ese cambio de estado no está permitido para este grupo." }
   }
 
+  let aviso: string | undefined
   if (nuevo === "abierto" || nuevo === "en_curso") {
-    const faltan = await faltantes(supabase, institucionId, actual, nuevo)
-    if (faltan === "error") return falloBD({ message: "comprobación de requisitos" })
-    if (faltan.length) {
-      return { ok: false, gravedad: "advertencia", mensaje: `Aún no se puede: ${faltan.join(" ")}` }
+    const r = await faltantes(supabase, institucionId, actual, nuevo)
+    if (r === "error") return falloBD({ message: "comprobación de requisitos" })
+    if (r.faltan.length) {
+      return { ok: false, gravedad: "advertencia", mensaje: `Aún no se puede: ${r.faltan.join(" ")}` }
     }
+    aviso = r.aviso
   }
 
   const { data, error } = await supabase
@@ -176,25 +252,37 @@ export async function cambiarEstadoGrupo(id: unknown, estado: unknown): Promise<
   if (!data?.length) return NO_ENCONTRADO
 
   revalidarGrupos(grupoId)
-  return { ok: true, id: grupoId }
+  return { ok: true, id: grupoId, aviso }
 }
 
-/** Requisitos para abrir inscripciones o empezar el grupo. */
+/**
+ * Requisitos para abrir inscripciones o iniciar clases.
+ * - Abrir («abierto»): curso publicado, condiciones, horario, fechas y vacantes.
+ *   El docente NO se exige: la institución puede recibir solicitudes mientras
+ *   lo asigna (los estudiantes ven «Docente por asignar»). Sin docente válido se
+ *   devuelve un aviso. La RPC crear_solicitud_inscripcion de V5 tampoco lo exige.
+ * - Iniciar clases («en_curso»): además, un docente activo y habilitado.
+ */
 async function faltantes(
   supabase: Supabase,
   institucionId: string,
   grupo: FilaGrupo,
   nuevo: "abierto" | "en_curso"
-): Promise<string[] | "error"> {
+): Promise<{ faltan: string[]; aviso?: string } | "error"> {
   const faltan: string[] = []
-  if (!grupo.docente_id) faltan.push("asigna un docente al grupo.")
-  else {
+  let docenteValido = false
+  let docenteDeshabilitado = false
+  if (grupo.docente_id) {
     const [rol, perfil] = await Promise.all([
       supabase.from("usuario_roles").select("activo").eq("perfil_id", grupo.docente_id).eq("rol", "docente").eq("institucion_id", institucionId).maybeSingle(),
       supabase.from("perfiles").select("activo").eq("id", grupo.docente_id).eq("institucion_id", institucionId).maybeSingle(),
     ])
     if (rol.error || perfil.error) return "error"
-    if (!rol.data?.activo || !perfil.data?.activo) faltan.push("el docente asignado está deshabilitado: asigna otro.")
+    docenteValido = Boolean(rol.data?.activo && perfil.data?.activo)
+    docenteDeshabilitado = !docenteValido
+  }
+  if (nuevo === "en_curso" && !docenteValido) {
+    faltan.push(docenteDeshabilitado ? "el docente asignado está deshabilitado: asigna otro antes de iniciar las clases." : "asigna un docente antes de iniciar las clases.")
   }
   if (nuevo === "abierto") {
     const [curso, condiciones, horarios] = await Promise.all([
@@ -210,7 +298,13 @@ async function faltantes(
     if (grupo.fecha_fin < new Date().toISOString().slice(0, 10)) faltan.push("la fecha de fin ya pasó.")
     if (grupo.vacantes_disponibles !== null && grupo.vacantes_disponibles < 1) faltan.push("no quedan vacantes disponibles.")
   }
-  return faltan
+  const aviso =
+    nuevo === "abierto" && !docenteValido
+      ? docenteDeshabilitado
+        ? "El docente asignado está deshabilitado. Las inscripciones se abren igual; asigna otro docente antes de iniciar las clases."
+        : "Las inscripciones se abren con «Docente por asignar». Asigna un docente antes de iniciar las clases."
+      : undefined
+  return { faltan, aviso }
 }
 
 /** Solo sin matrículas, solicitudes ni evaluaciones. Sus horarios se borran en cascada. */
@@ -246,14 +340,19 @@ export async function eliminarGrupo(id: unknown): Promise<ResultadoGrupo> {
 // Horarios
 // ---------------------------------------------------------------------------
 
-/** Crea (horarioId null) o edita un horario del grupo. */
-export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos: unknown): Promise<ResultadoGrupo> {
+/**
+ * Crea (horarioId null) o edita un horario del grupo.
+ * `idCliente` (opcional, solo al crear): id generado por el asistente. Si un
+ * intento anterior ya creó ese horario, se actualiza en lugar de duplicarlo.
+ */
+export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos: unknown, idCliente?: unknown): Promise<ResultadoGrupo> {
   const institucionId = await institucionDelAdmin()
   if (!institucionId) return SIN_PERMISO
   const g = idSchema.safeParse(grupoId)
   const h = horarioId === null ? { success: true as const, data: null } : idSchema.safeParse(horarioId)
+  const propio = idCliente === undefined || horarioId !== null ? { success: true as const, data: undefined } : idSchema.safeParse(idCliente)
   const v = horarioSchema.safeParse(datos)
-  if (!g.success || !h.success || !v.success) return { ok: false, gravedad: "error", mensaje: "Revisa los datos del horario." }
+  if (!g.success || !h.success || !propio.success || !v.success) return { ok: false, gravedad: "error", mensaje: "Revisa los datos del horario." }
 
   const supabase = await createClient()
   const grupo = await grupoDeInstitucion(supabase, institucionId, g.data)
@@ -269,9 +368,11 @@ export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos
     .eq("grupo_id", g.data)
     .eq("institucion_id", institucionId)
   if (propiosError) return falloBD(propiosError)
+  // Reintento de una creación que sí llegó a guardarse: se actualiza ese mismo horario.
+  const horarioDestino = h.data ?? (propio.data && (propios ?? []).some((o) => o.id === propio.data) ? propio.data : null)
   const choque = (propios ?? []).find(
     (o) =>
-      o.id !== h.data &&
+      o.id !== horarioDestino &&
       o.dia_semana === fila.dia_semana &&
       seSolapan({ inicio: fila.hora_inicio, fin: fila.hora_fin }, { inicio: horaCorta(o.hora_inicio), fin: horaCorta(o.hora_fin) })
   )
@@ -279,9 +380,9 @@ export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos
     return { ok: false, gravedad: "advertencia", campo: "hora_inicio", mensaje: "Se cruza con otro horario de este mismo grupo." }
   }
 
-  const consulta = h.data
-    ? supabase.from("horarios").update(fila).eq("id", h.data).eq("grupo_id", g.data).eq("institucion_id", institucionId).select("id")
-    : supabase.from("horarios").insert({ ...fila, grupo_id: g.data, institucion_id: institucionId }).select("id")
+  const consulta = horarioDestino
+    ? supabase.from("horarios").update(fila).eq("id", horarioDestino).eq("grupo_id", g.data).eq("institucion_id", institucionId).select("id")
+    : supabase.from("horarios").insert({ ...(propio.data ? { id: propio.data } : {}), ...fila, grupo_id: g.data, institucion_id: institucionId }).select("id")
   const { data, error } = await consulta
   if (error) return falloBD(error)
   if (!data?.length) return NO_ENCONTRADO
@@ -390,6 +491,9 @@ function enUso(): Fallo {
 }
 
 function falloBD(error: { code?: string; message: string }): Fallo {
+  if (/ubicacion/i.test(error.message) && (error.code === "PGRST204" || error.code === "42703")) {
+    return { ok: false, gravedad: "advertencia", mensaje: "El aula o sede aún no se puede guardar (falta la actualización «aula_academica_v5»)." }
+  }
   if (esErrorDeRed(error)) return { ok: false, gravedad: "error", mensaje: "No se pudo conectar con el servidor. Inténtalo de nuevo." }
   console.error("[grupos] BD", error.code, error.message)
   if (/docente/i.test(error.message)) {

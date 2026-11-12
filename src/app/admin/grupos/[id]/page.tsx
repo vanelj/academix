@@ -3,13 +3,14 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, CircleAlert, CircleCheck } from "lucide-react"
 
+import { AsignarDocenteGrupo } from "@/components/admin/asignacion-docente"
 import { GrupoAcciones } from "@/components/admin/grupos/grupo-acciones"
 import { DESCRIPCION_ESTADO_GRUPO, DisponibilidadBadge, EstadoGrupoBadge, fechaCorta } from "@/components/admin/grupos/grupo-ui"
 import { HorariosGrupo } from "@/components/admin/grupos/horarios-grupo"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { requerirPanel } from "@/lib/auth/contexto"
-import { obtenerGrupo } from "@/lib/grupos/datos"
+import { obtenerGrupo, opcionesDocentes, type OpcionDocente } from "@/lib/grupos/datos"
 import { cn } from "@/lib/utils"
 import { idSchema } from "@/lib/validations/grupo"
 
@@ -26,6 +27,13 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
   // Un grupo de otra institución se trata como inexistente (RLS + filtro explícito).
   const grupo = await obtenerGrupo(institucionId, id)
   if (!grupo) notFound()
+  let docentes: OpcionDocente[] = []
+  try {
+    docentes = await opcionesDocentes(institucionId, grupo.docente?.id ?? null)
+  } catch {
+    docentes = []
+  }
+  const asignacionCerrada = grupo.estado === "cerrado" || grupo.estado === "cancelado"
 
   const d = grupo.dependencias
   const eliminable = d !== null && d.matriculas + d.solicitudes + d.evaluaciones === 0
@@ -33,7 +41,6 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
   const requisitos = [
     { ok: grupo.curso?.estado === "publicado", texto: "Curso publicado" },
     { ok: grupo.cursoConCondiciones, texto: "Condiciones del curso configuradas" },
-    { ok: grupo.docente !== null && grupo.docenteHabilitado, texto: "Docente asignado y habilitado" },
     { ok: grupo.horarios.length > 0, texto: "Al menos un horario" },
     { ok: grupo.vacantesDisponibles === null || grupo.vacantesDisponibles > 0, texto: "Vacantes disponibles" },
   ]
@@ -72,11 +79,16 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
                     <Link href={`/admin/cursos/${grupo.curso.id}`} className="hover:underline">{grupo.curso.nombre}</Link>
                   ) : "—"}
                 </Dato>
-                <Dato etiqueta="Docente">
+                <Dato etiqueta="Docente responsable">
                   {grupo.docente ? (
                     <Link href={`/admin/docentes/${grupo.docente.id}`} className="hover:underline">{grupo.docente.nombre}</Link>
                   ) : (
                     <span className="font-normal text-muted-foreground">Sin asignar</span>
+                  )}
+                  {!asignacionCerrada && (
+                    <span className="mt-1.5 block">
+                      <AsignarDocenteGrupo grupoId={grupo.id} actualId={grupo.docente?.id ?? null} docentes={docentes} />
+                    </span>
                   )}
                 </Dato>
                 <Dato etiqueta="Fechas">{fechaCorta(grupo.fecha_inicio)} – {fechaCorta(grupo.fecha_fin)}</Dato>
@@ -93,7 +105,7 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
             </CardContent>
           </Card>
 
-          <HorariosGrupo grupoId={grupo.id} horarios={grupo.horarios} />
+          <HorariosGrupo grupoId={grupo.id} horarios={grupo.horarios} ubicacionDisponible={grupo.ubicacionDisponible} />
         </div>
 
         <aside className="space-y-4">
@@ -104,7 +116,7 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {requisitos.map((r) => (
+                {[...requisitos, { ok: true, texto: grupo.docente && grupo.docenteHabilitado ? "Docente asignado" : "Docente: opcional para abrir (se muestra «Docente por asignar»)" }].map((r) => (
                   <li key={r.texto} className="flex items-start gap-2 text-sm">
                     {r.ok ? (
                       <CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-label="Cumplido" />
@@ -115,6 +127,11 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
                   </li>
                 ))}
               </ul>
+              <p className={cn("mt-3 border-t pt-3 text-sm", grupo.docente && grupo.docenteHabilitado ? "text-muted-foreground" : "text-warning")}>
+                {grupo.docente && grupo.docenteHabilitado
+                  ? "Para iniciar las clases: docente asignado y habilitado ✓"
+                  : "Para iniciar las clases se necesitará un docente asignado y habilitado."}
+              </p>
             </CardContent>
           </Card>
           {d && (

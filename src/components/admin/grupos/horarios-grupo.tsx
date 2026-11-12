@@ -29,7 +29,7 @@ import { DIAS_SEMANA, HORARIO_INICIAL, horarioSchema, type HorarioValues } from 
 import { useProtegerCambios } from "@/components/layout/proteccion-cambios"
 
 /** Horarios semanales del grupo: listar, agregar, editar y eliminar. */
-export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuardado }: { grupoId: string; horarios: Horario[]; codigoGrupo?: string; onRegistrarGuardado?: RegistrarGuardadorAsistente }) {
+export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuardado, ubicacionDisponible = false }: { grupoId: string; horarios: Horario[]; codigoGrupo?: string; onRegistrarGuardado?: RegistrarGuardadorAsistente; ubicacionDisponible?: boolean }) {
   const router = useRouter()
   const [editar, setEditar] = useState<Horario | "nuevo" | null>(null)
   const [borrar, setBorrar] = useState<Horario | null>(null)
@@ -83,6 +83,7 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
                     <Link2 className="size-3 shrink-0" aria-hidden />
                     {h.enlace_clase ?? "Sin enlace de clase"}
                   </p>
+                  {h.ubicacion && <p className="truncate text-xs text-muted-foreground">Aula o sede: {h.ubicacion}</p>}
                 </div>
                 <Button variant="ghost" size="icon-sm" onClick={() => setEditar(h)} aria-label={`Editar horario del ${nombreDia(h.dia_semana)}`}>
                   <Pencil aria-hidden />
@@ -103,6 +104,7 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
         onRegistrarGuardado={onRegistrarGuardado}
         claveGuardado={`horario:${grupoId}`}
         descripcionGuardado={`Horario del grupo ${codigoGrupo ?? grupoId}`}
+        ubicacionDisponible={ubicacionDisponible}
       />
 
       <Dialog open={borrar !== null} onOpenChange={(v) => !v && !borrando && setBorrar(null)}>
@@ -126,7 +128,8 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
   )
 }
 
-function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveGuardado, descripcionGuardado }: {
+function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveGuardado, descripcionGuardado, ubicacionDisponible }: {
+  ubicacionDisponible: boolean
   grupoId: string
   horario: Horario | "nuevo" | null
   onCerrar: () => void
@@ -152,6 +155,7 @@ function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveG
             onRegistrarGuardado={onRegistrarGuardado}
             claveGuardado={claveGuardado}
             descripcionGuardado={descripcionGuardado}
+            ubicacionDisponible={ubicacionDisponible}
           />
         )}
       </DialogContent>
@@ -168,7 +172,9 @@ function FormularioHorario({
   onRegistrarGuardado,
   claveGuardado,
   descripcionGuardado,
+  ubicacionDisponible,
 }: {
+  ubicacionDisponible: boolean
   grupoId: string
   horario: Horario | null
   guardando: boolean
@@ -183,8 +189,8 @@ function FormularioHorario({
   const form = useForm<HorarioValues>({
     resolver: zodResolver(horarioSchema),
     defaultValues: horario
-      ? { dia_semana: String(horario.dia_semana), hora_inicio: horario.hora_inicio, hora_fin: horario.hora_fin, enlace_clase: horario.enlace_clase ?? "" }
-      : HORARIO_INICIAL,
+      ? { dia_semana: String(horario.dia_semana), hora_inicio: horario.hora_inicio, hora_fin: horario.hora_fin, enlace_clase: horario.enlace_clase ?? "", ...(ubicacionDisponible ? { ubicacion: horario.ubicacion ?? "" } : {}) }
+      : { ...HORARIO_INICIAL, ...(ubicacionDisponible ? { ubicacion: "" } : {}) },
     mode: "onTouched",
   })
   const { isDirty } = form.formState
@@ -299,6 +305,21 @@ function FormularioHorario({
             </Field>
           )}
         />
+        {ubicacionDisponible && (
+          <Controller
+            control={form.control}
+            name="ubicacion"
+            render={({ field }) => (
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="horario-ubicacion">
+                  Aula o sede <span className="font-normal text-muted-foreground">(opcional, clases presenciales)</span>
+                </FieldLabel>
+                <Input {...field} value={field.value ?? ""} id="horario-ubicacion" maxLength={200} placeholder="Sede Centro, aula 204" />
+                <FieldDescription>Solo la ven el docente y los matriculados.</FieldDescription>
+              </Field>
+            )}
+          />
+        )}
       </fieldset>
       <DialogFooter className="mt-6">
         <DialogClose render={<Button type="button" variant="outline" disabled={guardando} />}>Cancelar</DialogClose>

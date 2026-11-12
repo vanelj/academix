@@ -15,6 +15,7 @@ export default async function SeleccionarRolPage() {
   const ctx = await obtenerContexto()
 
   if (ctx.estado === "sin_sesion") redirect("/login")
+  if (ctx.activacionPendiente) redirect("/activar-cuenta")
   if (ctx.estado === "sin_perfil") redirect("/completar-registro")
   if (!ctx.perfil.activo || ctx.roles.length === 0) redirect("/cuenta")
 

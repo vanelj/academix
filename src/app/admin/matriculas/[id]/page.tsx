@@ -218,7 +218,7 @@ export default async function MatriculaPage({ params }: PageProps<"/admin/matric
               )}
               <p className="flex gap-2 text-xs text-muted-foreground">
                 <Lock className="mt-px size-3.5 shrink-0" aria-hidden />
-                El detalle de cada cuota y la revisión de comprobantes están en el módulo «Pagos y mensualidades».
+                El detalle de cada cuota y la revisión de comprobantes están en el módulo «Pagos».
               </p>
             </CardContent>
           </Card>

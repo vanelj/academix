@@ -115,7 +115,7 @@ export function PagoForm({ objetivo, medios, textoPagos, userId }: { objetivo: O
       }
       const r = await presentarComprobante({ destino: objetivo.destino, id: objetivo.id, monto: monto.trim(), metodo, referencia: referencia.trim(), ruta, confirmado: true })
       if (r.ok) {
-        op.exito("Comprobante enviado", { descripcion: `${institucion} verificará el ingreso y verás el resultado en «Mis pagos y cuotas».` })
+        op.exito("Comprobante enviado", { descripcion: `${institucion} verificará el ingreso y verás el resultado en «Mis compras y pagos».` })
         setRevisar(false)
         router.push(objetivo.destino === "certificado" ? "/estudiante/certificados?enviado=1" : "/estudiante/pagos?enviado=1")
         router.refresh()

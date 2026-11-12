@@ -2,7 +2,6 @@ import {
   Award,
   BookCheck,
   BookOpen,
-  Bookmark,
   Building2,
   CalendarClock,
   CalendarRange,
@@ -29,8 +28,10 @@ export type NavItem = {
   href: string
   icon: LucideIcon
   description?: string
-  /** Módulo interno ya implementado (los demás se muestran como "Pendiente"). */
+  /** Módulo interno ya implementado (los demás se muestran como «En preparación»). */
   disponible?: boolean
+  /** Sección ya disponible donde, mientras tanto, se consulta esa información. */
+  mientras?: { titulo: string; href: string }
 }
 
 export type NavSection = {
@@ -117,10 +118,10 @@ export const roleConfig: Record<Role, RoleConfig> = {
             disponible: true,
           },
           {
-            title: "Pagos y mensualidades",
+            title: "Pagos",
             href: "/admin/pagos",
             icon: CreditCard,
-            description: "Verifica comprobantes, pagos y cuotas.",
+            description: "Verifica los comprobantes de las compras de cursos y certificados.",
             disponible: true,
           },
         ],
@@ -186,19 +187,22 @@ export const roleConfig: Record<Role, RoleConfig> = {
             title: "Mis grupos",
             href: "/docente/grupos",
             icon: LibraryBig,
-            description: "Grupos que tienes asignados.",
+            description: "Grupos asignados, con horarios, estudiantes y avance de notas.",
+            disponible: true,
           },
           {
             title: "Mis horarios",
             href: "/docente/horarios",
             icon: CalendarClock,
-            description: "Sesiones y enlaces de clase de tus grupos.",
+            description: "Tus clases de la semana y sus enlaces.",
+            disponible: true,
           },
           {
             title: "Mis estudiantes",
             href: "/docente/estudiantes",
             icon: UsersRound,
             description: "Estudiantes matriculados en tus grupos.",
+            disponible: true,
           },
         ],
       },
@@ -206,16 +210,11 @@ export const roleConfig: Record<Role, RoleConfig> = {
         title: "Evaluación",
         items: [
           {
-            title: "Evaluaciones",
-            href: "/docente/evaluaciones",
-            icon: ClipboardPen,
-            description: "Crea y organiza las evaluaciones de tus grupos.",
-          },
-          {
-            title: "Calificaciones",
+            title: "Evaluaciones y notas",
             href: "/docente/calificaciones",
             icon: BookCheck,
-            description: "Registra las notas de tus estudiantes.",
+            description: "Evaluaciones de tus grupos y registro de calificaciones.",
+            disponible: true,
           },
         ],
       },
@@ -243,6 +242,7 @@ export const roleConfig: Record<Role, RoleConfig> = {
             href: "/estudiante/cursos",
             icon: LibraryBig,
             description: "Cursos en los que estás matriculado, de cualquier institución.",
+            disponible: true,
           },
           {
             // Catálogo público: fuera del panel, con la oferta de todas las instituciones.
@@ -255,13 +255,15 @@ export const roleConfig: Record<Role, RoleConfig> = {
             title: "Mis horarios",
             href: "/estudiante/horarios",
             icon: CalendarClock,
-            description: "Sesiones de tus cursos.",
+            description: "Tus clases de la semana, de todas tus instituciones.",
+            disponible: true,
           },
           {
             title: "Evaluaciones y notas",
             href: "/estudiante/evaluaciones",
             icon: BookCheck,
-            description: "Tus evaluaciones y calificaciones.",
+            description: "Tus evaluaciones, notas y resultados.",
+            disponible: true,
           },
           {
             title: "Mis certificados",
@@ -279,26 +281,14 @@ export const roleConfig: Record<Role, RoleConfig> = {
             title: "Mis solicitudes",
             href: "/estudiante/solicitudes",
             icon: Inbox,
-            description: "Solicitudes de inscripción que enviaste.",
+            description: "Compras e inscripciones en trámite (y reservas anteriores).",
             disponible: true,
           },
           {
-            title: "Mis reservas",
-            href: "/estudiante/reservas",
-            icon: Bookmark,
-            description: "Vacantes reservadas y su fecha de vencimiento.",
-          },
-          {
-            title: "Mis matrículas",
-            href: "/estudiante/matriculas",
-            icon: ClipboardCheck,
-            description: "Matrículas confirmadas en cada institución.",
-          },
-          {
-            title: "Mis pagos y cuotas",
+            title: "Mis compras y pagos",
             href: "/estudiante/pagos",
             icon: Receipt,
-            description: "Pagos presentados y cuotas pendientes.",
+            description: "Cursos comprados, pagos pendientes y comprobantes.",
             disponible: true,
           },
         ],

@@ -36,7 +36,7 @@ export async function verificarModuloPagos(institucionId: string): Promise<Compr
   // ---------- A. Sesión ----------
   const inst = await supabase.from("instituciones").select("activo").eq("id", institucionId).maybeSingle()
   add("Sesión", "A1", "Institución activa", inst.data?.activo === true ? "ok" : "falla", inst.error ? describir(inst.error) : inst.data?.activo ? "La institución de tu perfil está activa." : "La institución no está activa o no es visible.")
-  add("Sesión", "A2", "Revisión manual de pagos", REVISION_PAGOS_HABILITADA ? "aviso" : "info", REVISION_PAGOS_HABILITADA ? "El interruptor está ENCENDIDO." : "Deshabilitada (REVISION_PAGOS_HABILITADA = false), como corresponde hasta terminar las pruebas.")
+  add("Sesión", "A2", "Revisión manual de pagos", REVISION_PAGOS_HABILITADA ? "aviso" : "info", REVISION_PAGOS_HABILITADA ? "El interruptor está ENCENDIDO: aplica solicitudes_estado_grupo_v5 antes de aprobar pagos reales." : "Deshabilitada (REVISION_PAGOS_HABILITADA = false), como corresponde hasta terminar las pruebas.")
 
   // ---------- B y C. RLS: lectura propia y aislamiento ----------
   for (const tabla of ["pagos", "cuotas", "matriculas", "solicitudes_inscripcion"]) {

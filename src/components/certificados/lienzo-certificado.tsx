@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef } from "react"
+import { useMemo, useRef, useSyncExternalStore } from "react"
 
 import {
   ajustarTexto,
@@ -25,13 +25,17 @@ import { trazoQr } from "@/lib/certificados/qr"
 const FAMILIA = { serif: "'Times New Roman', Times, serif", sans: "Helvetica, Arial, sans-serif" } as const
 
 let lienzoMedida: CanvasRenderingContext2D | null = null
+/** Estimación sin navegador (servidor y primera pintura del cliente: así coinciden al hidratar). */
+const estimar = (texto: string, tamano: number) => texto.length * tamano * 0.5
 function medir(texto: string, tamano: number, c: Campo) {
-  if (typeof document === "undefined") return texto.length * tamano * 0.5
+  if (typeof document === "undefined") return estimar(texto, tamano)
   lienzoMedida ??= document.createElement("canvas").getContext("2d")
   if (!lienzoMedida) return texto.length * tamano * 0.5
   lienzoMedida.font = `${c.cursiva ? "italic " : ""}${c.negrita ? "bold " : ""}${tamano}px ${FAMILIA[c.fuente]}`
   return lienzoMedida.measureText(texto).width
 }
+
+const sinSuscripcion = () => () => {}
 
 export type FondoLienzo = { tipo: "base"; base: BasePlantilla } | { tipo: "imagen"; url: string } | { tipo: "pdf" } | { tipo: "sin_fondo" }
 
@@ -53,6 +57,9 @@ export function LienzoCertificado({ fondo, campos, valores, logoUrl, firmaUrl, d
   const svg = useRef<SVGSVGElement>(null)
   const arrastre = useRef<{ id: string; modo: "mover" | "tamano"; inicio: { x: number; y: number }; caja: Pick<Campo, "x" | "y" | "w" | "h"> } | null>(null)
   const editable = !!alMover
+  // Medición real con <canvas> solo después de hidratar: antes se usa la misma estimación
+  // que el servidor (si no, el tamaño de letra difiere y React avisa de desajuste).
+  const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false)
   const trazos = useMemo(() => (fondo.tipo === "base" ? trazosFondo(fondo.base) : []), [fondo])
   const qr = useMemo(() => trazoQr(demostracion ? MARCA_DEMOSTRACION : (valores.url_verificacion ?? MARCA_DEMOSTRACION)), [demostracion, valores.url_verificacion])
 
@@ -116,7 +123,7 @@ export function LienzoCertificado({ fondo, campos, valores, logoUrl, firmaUrl, d
           let texto = resolverTexto(c.texto, valores)
           if (texto && c.mayusculas) texto = texto.toLocaleUpperCase("es-PE")
           if (texto) {
-            const { lineas, tamano } = ajustarTexto(texto, (t, s) => medir(t, s, c), c.tamano, bw, bh)
+            const { lineas, tamano } = ajustarTexto(texto, (t, s) => (montado ? medir(t, s, c) : estimar(t, s)), c.tamano, bw, bh)
             const alto = lineas.length * tamano * 1.15
             const anchor = c.alineacion === "izquierda" ? "start" : c.alineacion === "derecha" ? "end" : "middle"
             const x = c.alineacion === "izquierda" ? bx : c.alineacion === "derecha" ? bx + bw : bx + bw / 2

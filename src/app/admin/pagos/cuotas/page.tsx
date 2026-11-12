@@ -11,14 +11,14 @@ export const metadata: Metadata = {
   title: "Cuotas · Academix",
 }
 
-// Cuotas del módulo "Pagos y mensualidades": solo administrador con rol activo; la institución sale del perfil.
+// Cuotas del módulo "Pagos": solo administrador con rol activo; la institución sale del perfil.
 export default async function CuotasPage() {
   const sesion = await requerirPanel("admin")
   const institucionId = sesion.perfil.institucionId
 
   const encabezado = (
     <>
-      <PageHeader title="Pagos y mensualidades" description="Comprobantes presentados por los estudiantes y cuotas de las matrículas de tu institución." />
+      <PageHeader title="Pagos" description="Comprobantes de las compras de cursos y certificados que envían tus estudiantes." />
       <PagosTabs actual="cuotas" />
     </>
   )

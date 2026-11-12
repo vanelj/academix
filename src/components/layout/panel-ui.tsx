@@ -57,13 +57,16 @@ export type IndicadorProps = {
   /** Conteo real; null si no se pudo consultar (se muestra "—"). */
   valor: number | null
   descripcion: string
+  /** Sección donde se ve el detalle (la tarjeta pasa a ser un enlace). */
+  href?: string
 }
 
 export function Indicadores({ items }: { items: IndicadorProps[] }) {
   return (
     <ul className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map(({ icono: Icono, titulo, valor, descripcion }) => (
-        <li key={titulo} className="rounded-2xl bg-card/85 p-4 shadow-[0_12px_36px_-30px_color-mix(in_oklch,var(--primary),transparent_15%)] ring-1 ring-primary/10 backdrop-blur-sm">
+      {items.map(({ icono: Icono, titulo, valor, descripcion, href }) => {
+        const contenido = (
+          <>
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm text-muted-foreground">{titulo}</p>
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/15">
@@ -82,8 +85,21 @@ export function Indicadores({ items }: { items: IndicadorProps[] }) {
           <p className="mt-1 text-xs text-muted-foreground">
             {valor === null ? "Dato no disponible en este momento." : descripcion}
           </p>
-        </li>
-      ))}
+          </>
+        )
+        const estilo = "block h-full rounded-2xl bg-card/85 p-4 shadow-[0_12px_36px_-30px_color-mix(in_oklch,var(--primary),transparent_15%)] ring-1 ring-primary/10 backdrop-blur-sm"
+        return (
+          <li key={titulo}>
+            {href ? (
+              <Link href={href} className={cn(estilo, "transition-all outline-none hover:-translate-y-0.5 hover:ring-primary/30 focus-visible:ring-3 focus-visible:ring-ring/50")}>
+                {contenido}
+              </Link>
+            ) : (
+              <div className={estilo}>{contenido}</div>
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -131,7 +147,7 @@ export function PrimerosPasos({ titulo, pasos }: { titulo: string; pasos: Paso[]
 
 /**
  * Módulos del menú del rol agrupados como en la barra lateral. Los módulos
- * internos aún no desarrollados se marcan "Pendiente"; los implementados y los
+ * internos aún no desarrollados se marcan «En preparación»; los implementados y los
  * enlaces a páginas públicas que ya funcionan (p. ej. Explorar cursos), "Disponible".
  */
 export function ModulosPanel({ rol }: { rol: Role }) {
@@ -170,7 +186,7 @@ export function ModulosPanel({ rol }: { rol: Role }) {
                             <Badge variant="success">Disponible</Badge>
                           ) : (
                             <Badge variant="outline" className="text-muted-foreground">
-                              Pendiente
+                              En preparación
                             </Badge>
                           )}
                         </span>

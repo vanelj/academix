@@ -5,13 +5,15 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { destinoSegunContexto, obtenerContexto } from "@/lib/auth/contexto"
-import { usuarioEnRecuperacion } from "@/lib/auth/enlaces"
+import { activacionPendiente, MARCA_ACTIVACION, sesionDeInvitacion } from "@/lib/auth/activacion"
+import { ponerMarcaContrasena, usuarioEnActivacion } from "@/lib/auth/enlaces"
 import {
   clasificarErrorAuth,
   MENSAJES_AUTH,
   registrarErrorAuth,
 } from "@/lib/auth/errores-auth"
 import { COOKIE_RECUPERACION } from "@/lib/auth/recuperacion"
+import { retornoSeguro } from "@/lib/auth/retorno"
 import { esRol, panelDeRol } from "@/lib/auth/roles"
 import { mensajeErrorRegistro } from "@/lib/registro/errores"
 import {
@@ -19,6 +21,7 @@ import {
   datosRegistroSchema,
   parametrosRegistrarInstitucion,
 } from "@/lib/registro/pendiente"
+import { clienteAdministrativo } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { restablecerSchema } from "@/lib/validations/contrasena"
 
@@ -36,8 +39,16 @@ export type ResultadoDestino =
  * Se llama justo después de signInWithPassword. Decide el destino según el perfil
  * y los roles reales. Si la cuenta tiene un solo rol y no es el activo, lo activa
  * con seleccionar_rol() para que RLS aplique el rol correcto.
+ * `retorno` (opcional): curso del catálogo al que volver. Solo se usa si el
+ * destino es el panel de estudiante y es una ruta interna válida del catálogo.
  */
-export async function destinoTrasLogin(): Promise<ResultadoDestino> {
+export async function destinoTrasLogin(retorno?: unknown): Promise<ResultadoDestino> {
+  const r = await destinoBase()
+  const volver = retornoSeguro(retorno)
+  return r.ok && volver && r.destino === panelDeRol("estudiante") ? { ok: true, destino: volver } : r
+}
+
+async function destinoBase(): Promise<ResultadoDestino> {
   const ctx = await obtenerContexto()
 
   if (ctx.estado === "sin_sesion") {
@@ -138,11 +149,14 @@ export type ResultadoContrasena = { ok: true } | { ok: false; mensaje: string; v
 
 /**
  * Cambia la contraseña con updateUser(). Solo con una sesión de recuperación
- * válida (enlace verificado en /auth/restablecer). Al terminar cierra la sesión
- * para que la persona vuelva a entrar con la contraseña nueva.
+ * válida (enlace verificado en /auth/restablecer o /auth/activar) o con la
+ * activación pendiente. Si la cuenta tenía la marca activacion_pendiente, se
+ * quita (solo de ESTA cuenta, con la clave secreta en el servidor). Al terminar
+ * cierra la sesión para que la persona entre con la contraseña nueva.
  */
 export async function actualizarContrasena(datos: unknown): Promise<ResultadoContrasena> {
-  if (!(await usuarioEnRecuperacion())) {
+  const userId = await usuarioEnActivacion()
+  if (!userId) {
     return { ok: false, mensaje: MENSAJES_AUTH.sesionVencida, vencido: true }
   }
 
@@ -152,9 +166,31 @@ export async function actualizarContrasena(datos: unknown): Promise<ResultadoCon
   }
 
   const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const pendiente = activacionPendiente(claimsData?.claims)
+  const admin = pendiente ? clienteAdministrativo() : null
+  if (pendiente) {
+    // Primero se quita la marca: si falla, nada cambió y se puede reintentar.
+    if (!admin) return { ok: false, mensaje: MENSAJES_AUTH.servicio }
+    const { error: marcaError } = await admin.auth.admin.updateUserById(userId, {
+      app_metadata: { [MARCA_ACTIVACION]: null },
+    })
+    if (marcaError) {
+      registrarErrorAuth("quitar-marca-activacion", marcaError)
+      return { ok: false, mensaje: MENSAJES_AUTH.servicio }
+    }
+  }
+
   const { error } = await supabase.auth.updateUser({ password: validacion.data.password })
 
   if (error) {
+    if (admin) {
+      // La contraseña no se guardó: la cuenta sigue pendiente de activar.
+      const { error: restaurarError } = await admin.auth.admin.updateUserById(userId, {
+        app_metadata: { [MARCA_ACTIVACION]: true },
+      })
+      if (restaurarError) registrarErrorAuth("restaurar-marca-activacion", restaurarError)
+    }
     registrarErrorAuth("actualizar-contrasena", error)
     switch (clasificarErrorAuth(error)) {
       case "contrasena_debil":
@@ -178,5 +214,22 @@ export async function actualizarContrasena(datos: unknown): Promise<ResultadoCon
   if (salirError) registrarErrorAuth("salir-tras-restablecer", salirError)
 
   revalidatePath("/", "layout")
+  return { ok: true }
+}
+
+/**
+ * Invitación con la plantilla predeterminada de Supabase (flujo implícito): el
+ * navegador ya guardó la sesión del fragmento #access_token. Aquí el servidor
+ * valida esa sesión (firma del JWT) y solo pone la marca para crear contraseña
+ * si la sesión salió de un enlace de invitación reciente o la cuenta tiene la
+ * activación pendiente. No concede roles ni cambia datos.
+ */
+export async function confirmarSesionInvitacion(): Promise<{ ok: boolean }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getClaims()
+  const claims = data?.claims
+  if (error || !claims?.sub) return { ok: false }
+  if (!sesionDeInvitacion(claims) && !activacionPendiente(claims)) return { ok: false }
+  await ponerMarcaContrasena(claims.sub)
   return { ok: true }
 }

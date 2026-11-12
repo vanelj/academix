@@ -57,7 +57,9 @@ export function GrupoAcciones({
     try {
       const r = accion === "eliminar" ? await eliminarGrupo(grupoId) : await cambiarEstadoGrupo(grupoId, accion)
       if (r.ok) {
-        op.exito(accion === "eliminar" ? "Grupo eliminado" : ACCION[accion].exito, {
+        // Abrir sin docente es válido, pero se avisa que deberá asignarse antes de iniciar las clases.
+        if (r.aviso) op.advertencia(ACCION[accion as EstadoGrupo]?.exito ?? "Grupo actualizado", { descripcion: r.aviso })
+        else op.exito(accion === "eliminar" ? "Grupo eliminado" : ACCION[accion].exito, {
           descripcion: accion === "eliminar" ? `Se eliminó el grupo ${codigo}.` : undefined,
         })
         setConfirmar(null)

@@ -31,6 +31,7 @@ export default async function CompletarRegistroPage() {
   const ctx = await obtenerContexto()
 
   if (ctx.estado === "sin_sesion") redirect("/login")
+  if (ctx.activacionPendiente) redirect("/activar-cuenta")
   if (ctx.estado === "con_perfil") redirect(destinoSegunContexto(ctx))
 
   // user_metadata se lee del servidor de Auth (getUser), no de la cookie.

@@ -1,7 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 
+import { MARCA_ACTIVACION, origenPublico, RUTA_ACTIVACION } from "@/lib/auth/activacion"
 import { institucionDelAdmin } from "@/lib/auth/contexto"
 import { esErrorDeRed } from "@/lib/registro/errores"
 import { clienteAdministrativo } from "@/lib/supabase/admin"
@@ -90,6 +92,8 @@ export async function registrarDocente(datos: unknown): Promise<ResultadoDocente
     email: correo,
     email_confirm: false,
     user_metadata: { nombres: perfil.nombres, apellidos: perfil.apellidos },
+    // Sin contraseña hasta activar: la app no le abre ningún panel antes.
+    app_metadata: { [MARCA_ACTIVACION]: true },
   })
   if (crearError || !creado.user) {
     if (crearError?.code === "email_exists" || crearError?.status === 422) {
@@ -124,7 +128,7 @@ export async function registrarDocente(datos: unknown): Promise<ResultadoDocente
   }
 
   // 4. Invitación: el docente abre el enlace y crea su propia contraseña.
-  const { error: invitarError } = await admin.auth.admin.inviteUserByEmail(correo)
+  const { error: invitarError } = await admin.auth.admin.inviteUserByEmail(correo, await opcionesInvitacion())
   revalidarDocentes(userId)
   if (invitarError) {
     console.error("[docentes] invitación", invitarError.code, invitarError.message)
@@ -135,6 +139,20 @@ export async function registrarDocente(datos: unknown): Promise<ResultadoDocente
     }
   }
   return { ok: true, id: userId }
+}
+
+/**
+ * El enlace de la invitación vuelve a /auth/activar del sitio (NEXT_PUBLIC_SITE_URL
+ * o el host de esta petición). Sin origen válido, Supabase usa su Site URL.
+ * Supabase solo acepta el destino si está en «Redirect URLs».
+ */
+async function opcionesInvitacion(): Promise<{ redirectTo?: string }> {
+  const h = await headers()
+  const origen = origenPublico(process.env.NEXT_PUBLIC_SITE_URL, {
+    host: h.get("x-forwarded-host") ?? h.get("host"),
+    proto: h.get("x-forwarded-proto"),
+  })
+  return origen ? { redirectTo: `${origen}${RUTA_ACTIVACION}` } : {}
 }
 
 // ---------------------------------------------------------------------------
@@ -254,10 +272,26 @@ export async function reenviarInvitacion(perfilId: unknown): Promise<ResultadoDo
   const { data, error } = await admin.auth.admin.getUserById(id.data)
   if (error || !data.user?.email) return falloAuth(error)
   if (data.user.email_confirmed_at) {
-    return { ok: false, gravedad: "advertencia", mensaje: "Este docente ya activó su cuenta. Si olvidó su contraseña, puede recuperarla desde el inicio de sesión." }
+    // Supabase confirma el correo al abrir la invitación; si no llegó a crear su
+    // contraseña, la crea con «¿Olvidaste tu contraseña?» (mismo correo, sin otra invitación).
+    const sinContrasena = data.user.app_metadata?.[MARCA_ACTIVACION] === true
+    return {
+      ok: false,
+      gravedad: "advertencia",
+      mensaje: sinContrasena
+        ? "El docente ya abrió su invitación, pero no terminó de crear su contraseña. Pídele que use «¿Olvidaste tu contraseña?» en el inicio de sesión con su correo."
+        : "Este docente ya activó su cuenta. Si olvidó su contraseña, puede recuperarla desde el inicio de sesión.",
+    }
   }
 
-  const { error: invitarError } = await admin.auth.admin.inviteUserByEmail(data.user.email)
+  // La cuenta aún no se activó: queda (o sigue) marcada como pendiente.
+  if (data.user.app_metadata?.[MARCA_ACTIVACION] !== true) {
+    const { error: marcaError } = await admin.auth.admin.updateUserById(id.data, {
+      app_metadata: { [MARCA_ACTIVACION]: true },
+    })
+    if (marcaError) return falloAuth(marcaError)
+  }
+  const { error: invitarError } = await admin.auth.admin.inviteUserByEmail(data.user.email, await opcionesInvitacion())
   if (invitarError) return falloAuth(invitarError)
   revalidarDocentes(id.data)
   return { ok: true, id: id.data }

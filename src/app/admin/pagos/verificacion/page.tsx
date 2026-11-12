@@ -35,7 +35,7 @@ export default async function VerificacionPagosPage() {
 
   const encabezado = (
     <>
-      <PageHeader title="Pagos y mensualidades" description="Comprobantes presentados por los estudiantes y cuotas de las matrículas de tu institución." />
+      <PageHeader title="Pagos" description="Comprobantes de las compras de cursos y certificados que envían tus estudiantes." />
       <PagosTabs actual="verificacion" />
     </>
   )

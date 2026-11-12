@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
 import { LoginForm, type AvisoLogin } from "@/components/login/login-form"
+import { retornoSeguro } from "@/lib/auth/retorno"
 import { CabeceraMarcaMovil, PanelMarca } from "@/components/login/panel-marca"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 
@@ -52,7 +53,9 @@ const AVISOS: Record<string, AvisoLogin> = {
 
 // Login único para todos los roles: no hay selector de rol en esta pantalla.
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { aviso } = await searchParams
+  const { aviso, siguiente } = await searchParams
+  // Curso del catálogo al que volver tras iniciar sesión (validado de nuevo en el servidor).
+  const retorno = retornoSeguro(siguiente)
   const avisoLogin =
     typeof aviso === "string" && Object.hasOwn(AVISOS, aviso) ? AVISOS[aviso] : null
 
@@ -80,7 +83,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Iniciar sesión</h1>
               <p className="text-sm text-muted-foreground sm:text-base">Ingresa con el correo de tu cuenta</p>
             </div>
-            <LoginForm aviso={avisoLogin} />
+            <LoginForm aviso={avisoLogin} retorno={retorno} />
           </div>
         </main>
       </div>

@@ -8,14 +8,14 @@ import { requerirPanel } from "@/lib/auth/contexto"
 import { obtenerEstadoCuenta, type EstadoCuenta } from "@/lib/pagos/estudiante"
 
 export const metadata: Metadata = {
-  title: "Mis pagos y cuotas · Academix",
+  title: "Mis compras y pagos · Academix",
 }
 
 // Estado de cuenta del propio estudiante (RLS: solo sus solicitudes, matrículas, cuotas y pagos).
 export default async function MisPagosPage({ searchParams }: PageProps<"/estudiante/pagos">) {
   const sesion = await requerirPanel("estudiante")
   const { enviado } = await searchParams
-  const encabezado = <PageHeader title="Mis pagos y cuotas" description="Pagos pendientes, cuotas de tus matrículas y comprobantes enviados a cada institución." />
+  const encabezado = <PageHeader title="Mis compras y pagos" description="Tus compras de cursos, los pagos pendientes y los comprobantes enviados a cada institución." />
 
   let cuenta: EstadoCuenta
   try {

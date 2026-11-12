@@ -8,13 +8,13 @@
 
 [data-academix] {
   /* Superficies y texto */
-  --ax-bg: #fff8ee;
+  --ax-bg: #f8f8fb;
   --ax-surface: #ffffff;
-  --ax-surface-2: #f7eedf;
+  --ax-surface-2: #f1f1f6;
   --ax-ink: #1b1446;
   --ax-muted: #554d78;
-  --ax-line: #efe4d2;
-  --ax-skeleton: #f1e6d4;
+  --ax-line: #e5e5ee;
+  --ax-skeleton: #ececf2;
 
   /* Marca */
   --ax-violet: #6c3bf5;
@@ -30,7 +30,7 @@
   --ax-soft-coral: #ffe2dd;
   --ax-soft-mint: #d7f5ec;
   --ax-coral-text: #b23a2e;
-  /* Coral para texto grande destacado (<Highlight>): 3,6:1 sobre crema (AA texto grande).
+  /* Coral para texto grande destacado (<Highlight>): ≥3:1 sobre el fondo claro (AA texto grande).
      El coral de marca #ff6b5b queda para formas y fondos (2,65:1 no basta para texto). */
   --ax-coral-display: #e94b3b;
   --ax-mint-text: #0f6446;

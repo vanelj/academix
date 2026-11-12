@@ -80,7 +80,11 @@ volumen esperado.
 **Authentication → Emails → Templates:**
 
 - **Reset password**: pegar `plantilla_auth_recuperar.html`. El asunto sugerido está dentro del archivo.
-- **Invite user**: pegar `plantilla_auth_invitacion.html`.
+- **Invite user**: pegar `plantilla_auth_invitacion.html`. Su enlace es
+  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`: vuelve a la
+  `/auth/activar` que envía la app (local o producción). Mientras no se cambie,
+  la plantilla predeterminada (`{{ .ConfirmationURL }}`) también funciona: la
+  app lee la sesión del fragmento `#access_token` en `/activar-cuenta`.
 - Confirm signup, Magic link: no se usan.
 - Change email address: puede quedar con la plantilla por defecto.
 
@@ -93,6 +97,15 @@ volumen esperado.
   - `https://academix.mundosubs.net.pe/auth/activar`
   - `https://academix.mundosubs.net.pe/auth/confirmar`
   - `http://localhost:3000/**` (solo para desarrollo)
+
+**Activación de docentes (invitación).** La app envía la invitación con
+`redirectTo = <origen>/auth/activar`, donde `<origen>` es `NEXT_PUBLIC_SITE_URL`
+si está definida o, si no, el dominio desde el que el administrador registró al
+docente. Si ese destino no está en Redirect URLs, Supabase usa la Site URL y el
+enlace no llega a la pantalla de activación. Flujo: enlace → `/auth/activar`
+(verifica el token) → `/activar-cuenta` («Bienvenido a Academix — Configura tu
+contraseña») → `/login` → `/docente`. Hasta crear la contraseña, la cuenta
+(marca `app_metadata.activacion_pendiente`) no entra a ningún panel.
 
 **Google Cloud Console:** el URI de redirección autorizado sigue siendo el de
 Supabase (`https://<proyecto>.supabase.co/auth/v1/callback`). No cambia con el
@@ -150,3 +163,18 @@ recordatorios y los reintentos.
 3. Revisar la entrega en Resend → Emails.
 4. Si un correo queda en `fallido`, corregir la causa (visible en `ultimo_error`)
    y reintentarlo como admin con `select public.correos_reintentar('<id>');`.
+
+## 8. Puntos de integración (estado al 12-11-2026)
+
+La infraestructura ya existe (`src/lib/correos`, `/api/correos/procesar`, `correos_transaccionales_v5.sql`). No hay que crear otra. Ninguna operación académica depende de que el correo salga.
+
+| Correo | Origen | Estado |
+|---|---|---|
+| Invitación a docentes | Supabase Auth (`inviteUserByEmail`) + plantilla `plantilla_auth_invitacion.html` | Requiere SMTP de Resend en Supabase (sección 3) |
+| Recuperación de contraseña | Supabase Auth + `plantilla_auth_recuperar.html` | Requiere SMTP de Resend en Supabase (sección 3) |
+| Solicitud recibida, comprobante recibido/por revisar, pago rechazado | Disparadores de `correos_transaccionales_v5` → plantillas de `src/lib/correos/plantillas.ts` | Requiere migración + variables (secciones 4 y 5) |
+| Matrícula confirmada / anulada | Ídem | Ídem |
+| Certificado emitido | Ídem | Ídem |
+| Recordatorio de cuota | `encolar_recordatorios_correo` + tarea programada | Sección 6 |
+
+Las notificaciones internas (`notificaciones_v5`) son independientes del correo: la campana funciona sin Resend.

@@ -6,6 +6,8 @@ import { ArrowLeft, Building2, CalendarDays, Clock, UserRound } from "lucide-rea
 import { CategoryIcon } from "@/academix/components/ui/CategoryIcon"
 import { getCategoryVisual } from "@/academix/lib/visuals"
 import { InscripcionGrupo, type EstadoSesionInscripcion } from "@/components/public/inscripcion-grupo"
+import { importeAlInscribirse } from "@/lib/inscripcion/precio"
+import { duracionGrupo } from "@/lib/cursos/duracion"
 import { AcademixPublico } from "@/components/public/academix-publico"
 import { AxCabecera, AxPie } from "@/components/public/academix-secciones"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +15,8 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { obtenerContexto } from "@/lib/auth/contexto"
 import { obtenerDetalleCurso } from "@/lib/inscripcion/datos"
+import { estadoEnCurso } from "@/lib/inscripcion/estado-estudiante"
+import { courseFiltersToSearchParams, parseCourseSearchParams } from "@/academix/lib/filters"
 import { cn } from "@/lib/utils"
 import { DIAS_SEMANA, idSchema } from "@/lib/validations/grupo"
 
@@ -28,14 +32,20 @@ export async function generateMetadata({ params }: PageProps<"/cursos/[id]">): P
 }
 
 // Detalle público de un curso publicado: solo vistas públicas de V5.
-export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[id]">) {
-  const { id } = await params
+export default async function CursoPublicoPage({ params, searchParams }: PageProps<"/cursos/[id]">) {
+  const [{ id }, sp] = await Promise.all([params, searchParams])
   if (!idSchema.safeParse(id).success) notFound()
   const [curso, ctx] = await Promise.all([obtenerDetalleCurso(id), obtenerContexto()])
   if (!curso) notFound()
 
   const sesion: EstadoSesionInscripcion =
     ctx.estado === "sin_sesion" ? "sin_sesion" : ctx.estado === "sin_perfil" ? "sin_perfil" : ctx.rolActivo === "estudiante" ? "estudiante" : "no_estudiante"
+  // Situación real del estudiante en este curso (sus solicitudes y matrículas).
+  const estadoEstudiante = sesion === "estudiante" && ctx.estado === "con_perfil"
+    ? await estadoEnCurso(ctx.userId, curso.id, curso.grupos.map((g) => g.id))
+    : null
+  // Volver al catálogo con los mismos filtros (?volver=…, reconstruido solo con filtros válidos).
+  const volver = typeof sp.volver === "string" ? courseFiltersToSearchParams(parseCourseSearchParams(Object.fromEntries(new URLSearchParams(sp.volver)))).toString() : ""
   const c = curso.condiciones
   const politicas = curso.politicas
   const categoriaVisual = getCategoryVisual({ slug: "", name: curso.categoria })
@@ -54,7 +64,7 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
     <div className="flex min-h-svh flex-1 flex-col">
       <AxCabecera activa="courses" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <Link href="/cursos" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2.5 mb-4")}>
+        <Link href={volver ? `/cursos?${volver}` : "/cursos"} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2.5 mb-4")}>
           <ArrowLeft aria-hidden />
           Volver a cursos
         </Link>
@@ -86,6 +96,13 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
               {curso.descripcion && <p className="text-base whitespace-pre-line text-muted-foreground">{curso.descripcion}</p>}
             </div>
 
+            {estadoEstudiante?.matriculadoEnCurso && (
+              <div role="status" className="flex flex-col gap-3 rounded-2xl border border-success/40 bg-success/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <p className="font-medium">Ya estás matriculado en este curso.</p>
+                <Link href="/estudiante/cursos" className={buttonVariants({ size: "sm" })}>Ir a mi curso</Link>
+              </div>
+            )}
+
             <section aria-labelledby="grupos-titulo" className="space-y-3">
               <h2 id="grupos-titulo" className="text-xl font-semibold">Grupos</h2>
               {curso.gruposNoDisponibles ? (
@@ -110,6 +127,7 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
                             </div>
                             <p className="flex items-center gap-1.5 text-muted-foreground">
                               <CalendarDays className="size-3.5" aria-hidden />
+                              {duracionGrupo(g.fecha_inicio, g.fecha_fin) && <span className="font-medium text-foreground">{duracionGrupo(g.fecha_inicio, g.fecha_fin)} ·</span>}
                               {f(g.fecha_inicio)} – {f(g.fecha_fin)}
                             </p>
                             {g.horarios.length > 0 && (
@@ -118,12 +136,10 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
                                 {g.horarios.map((h) => `${DIAS_SEMANA[h.dia_semana - 1]} ${h.hora_inicio}–${h.hora_fin}`).join(" · ")}
                               </p>
                             )}
-                            {g.docente && (
-                              <p className="flex items-center gap-1.5 text-muted-foreground">
-                                <UserRound className="size-3.5" aria-hidden />
-                                {g.docente}
-                              </p>
-                            )}
+                            <p className="flex items-center gap-1.5 text-muted-foreground">
+                              <UserRound className="size-3.5" aria-hidden />
+                              {g.docente?.trim() || "Docente por asignar"}
+                            </p>
                             {g.vacantes_disponibles !== null && (
                               <p className="text-xs text-muted-foreground">
                                 {g.vacantes_disponibles > 0 ? `${g.vacantes_disponibles} vacantes disponibles` : "Sin vacantes disponibles"}
@@ -135,6 +151,11 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
                               <InscripcionGrupo
                                 grupoId={g.id}
                                 grupoCodigo={g.codigo}
+                                cursoId={curso.id}
+                                cursoNombre={curso.nombre}
+                                duracion={duracionGrupo(g.fecha_inicio, g.fecha_fin)}
+                                estado={estadoEstudiante?.porGrupo[g.id] ?? null}
+                                matriculadoEnCurso={estadoEstudiante?.matriculadoEnCurso ?? false}
                                 sinVacantes={(g.vacantes_disponibles ?? 1) < 1}
                                 condiciones={c}
                                 politicas={politicas}
@@ -168,24 +189,28 @@ export default async function CursoPublicoPage({ params }: PageProps<"/cursos/[i
           <aside className="space-y-4 lg:sticky lg:top-20">
             <Card>
               <CardHeader>
-                <CardTitle>Inversión</CardTitle>
+                <CardTitle>Precio</CardTitle>
                 {!c && <CardDescription>La institución aún no publicó las condiciones de inscripción.</CardDescription>}
               </CardHeader>
               {c && (
                 <CardContent className="space-y-2 text-sm">
                   {c.tipo_cobro === "gratuito" ? (
-                    <p className="text-lg font-semibold">Gratuito</p>
+                    <p className="text-3xl font-extrabold">Gratis</p>
+                  ) : c.tipo_cobro === "unico" ? (
+                    <>
+                      {/* Pago completo: un solo precio, como en una tienda de cursos. */}
+                      <p className="text-3xl font-extrabold tabular-nums">{soles.format(importeAlInscribirse(c))}</p>
+                      <p className="text-muted-foreground">Pago único al inscribirte.</p>
+                    </>
                   ) : (
                     <>
-                      <Fila etiqueta="Matrícula" valor={soles.format(c.matricula_importe)} />
-                      <Fila etiqueta={c.tipo_cobro === "cuotas" ? "Curso (en cuotas)" : "Curso"} valor={soles.format(c.importe_curso)} />
-                      {c.permite_reserva && (
-                        <Fila etiqueta="Reserva de vacante" valor={`${soles.format(c.reserva_importe)} · ${c.reserva_plazo_horas ?? "—"} h`} />
-                      )}
+                      {/* Curso anterior con cuotas: se muestra tal cual lo configuró la institución. */}
+                      <Fila etiqueta="Al inscribirte" valor={soles.format(c.matricula_importe)} />
+                      <Fila etiqueta="Curso (en cuotas)" valor={soles.format(c.importe_curso)} />
                     </>
                   )}
                   <p className="pt-2 text-xs text-muted-foreground">
-                    Los pagos se realizan por medios externos y la institución verifica el comprobante.
+                    Pagas directamente a la institución (Yape, Plin, transferencia o depósito) y ella verifica tu comprobante.
                   </p>
                   {c.requisitos && (
                     <div className="border-t pt-3">

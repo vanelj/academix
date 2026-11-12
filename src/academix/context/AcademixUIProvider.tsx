@@ -6,7 +6,7 @@
  */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { defaultRoutes } from '../config/routes';
-import type { ImageComponent, ImageLikeProps, LinkComponent, LinkLikeProps, PublicRoutes } from '../types';
+import type { ImageComponent, ImageLikeProps, LinkComponent, LinkLikeProps, PublicAccount, PublicRoutes } from '../types';
 
 export function AnchorLink({ href, className, children, ...rest }: LinkLikeProps) {
   return (
@@ -25,25 +25,29 @@ interface AcademixUIValue {
   Link: LinkComponent;
   Image: ImageComponent;
   routes: PublicRoutes;
+  /** null = visitante sin sesión. */
+  account: PublicAccount | null;
 }
 
-const Ctx = createContext<AcademixUIValue>({ Link: AnchorLink, Image: PlainImage, routes: defaultRoutes });
+const Ctx = createContext<AcademixUIValue>({ Link: AnchorLink, Image: PlainImage, routes: defaultRoutes, account: null });
 
 export interface AcademixUIProviderProps {
   children: ReactNode;
   LinkComponent?: LinkComponent;
   ImageComponent?: ImageComponent;
   routes?: Partial<PublicRoutes>;
+  account?: PublicAccount | null;
 }
 
-export function AcademixUIProvider({ children, LinkComponent, ImageComponent, routes }: AcademixUIProviderProps) {
+export function AcademixUIProvider({ children, LinkComponent, ImageComponent, routes, account = null }: AcademixUIProviderProps) {
   const value = useMemo<AcademixUIValue>(
     () => ({
       Link: LinkComponent ?? AnchorLink,
       Image: ImageComponent ?? PlainImage,
       routes: { ...defaultRoutes, ...routes },
+      account,
     }),
-    [LinkComponent, ImageComponent, routes],
+    [LinkComponent, ImageComponent, routes, account],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

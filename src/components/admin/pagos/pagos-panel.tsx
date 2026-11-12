@@ -26,8 +26,8 @@ const ESTADOS: { valor: FiltroEstado; etiqueta: string }[] = [
 ]
 const DESTINOS = [
   { value: TODOS, label: "Cualquier concepto" },
-  { value: "solicitud", label: "Solicitudes de inscripción" },
-  { value: "cuota", label: "Cuotas" },
+  { value: "solicitud", label: "Compras de cursos" },
+  { value: "cuota", label: "Cuotas (cursos anteriores)" },
   { value: "matricula", label: "Matrícula (versión anterior)" },
 ] satisfies { value: string; label: string }[]
 

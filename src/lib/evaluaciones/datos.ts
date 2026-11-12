@@ -8,13 +8,14 @@ import { createClient } from "@/lib/supabase/server"
  * Lectura de evaluaciones y calificaciones de la institución del administrador
  * (SOLO servidor). RLS de V5: "ver evaluaciones" y "ver calificaciones"
  * permiten al admin activo leer las de su institución; además se filtra por
- * institucion_id. El administrador SUPERVISA: no registra notas (eso será del
- * panel Docente).
+ * institucion_id. El administrador SUPERVISA: no registra notas (las registra el
+ * docente en /docente/calificaciones).
  */
 
 type Cliente = Awaited<ReturnType<typeof createClient>>
 
-export type Evaluacion = { id: string; grupo_id: string; nombre: string; descripcion: string | null; peso: number; fecha: string | null }
+/** publicada_en: null = borrador; undefined = publicación no habilitada (sin aula_academica_v5). */
+export type Evaluacion = { id: string; grupo_id: string; nombre: string; descripcion: string | null; peso: number; fecha: string | null; publicada_en?: string | null }
 type FilaNota = { evaluacion_id: string; matricula_id: string; nota: number; observacion: string | null; registrado_en: string }
 type FilaMatricula = { id: string; grupo_id: string; estudiante_id: string; estado: EstadoMatricula; estado_final: EstadoFinal }
 
@@ -94,6 +95,18 @@ export type EvaluacionesGrupo = {
   grupoEditable: boolean
   /** El grupo admite registrar resultados finales (en curso o cerrado). */
   admiteResultados: boolean
+  /** aula_academica_v5 aplicada: las notas se publican por evaluación. */
+  publicacionActiva: boolean
+}
+
+/** Evaluaciones del grupo con su estado de publicación (si la columna existe). */
+async function leerEvaluacionesGrupo(supabase: Awaited<ReturnType<typeof createClient>>, institucionId: string, grupoId: string) {
+  const consulta = (cols: string) =>
+    supabase.from("evaluaciones").select(cols).eq("institucion_id", institucionId).eq("grupo_id", grupoId)
+      .order("fecha", { ascending: true, nullsFirst: false }).order("nombre").overrideTypes<Evaluacion[], { merge: false }>()
+  const r = await consulta("id, grupo_id, nombre, descripcion, peso, fecha, publicada_en")
+  if (r.error?.code === "42703") return { ...(await consulta("id, grupo_id, nombre, descripcion, peso, fecha")), publicacion: false }
+  return { ...r, publicacion: true }
 }
 
 export async function obtenerEvaluacionesGrupo(institucionId: string, grupoId: string): Promise<EvaluacionesGrupo | null> {
@@ -105,13 +118,13 @@ export async function obtenerEvaluacionesGrupo(institucionId: string, grupoId: s
     grupo.curso
       ? supabase.from("cursos").select("nota_aprobatoria").eq("institucion_id", institucionId).eq("id", grupo.curso.id).maybeSingle().overrideTypes<{ nota_aprobatoria: number }, { merge: false }>()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from("evaluaciones").select("id, grupo_id, nombre, descripcion, peso, fecha").eq("institucion_id", institucionId).eq("grupo_id", grupoId)
-      .order("fecha", { ascending: true, nullsFirst: false }).order("nombre").overrideTypes<Evaluacion[], { merge: false }>(),
+    leerEvaluacionesGrupo(supabase, institucionId, grupoId),
     supabase.from("matriculas").select("id, grupo_id, estudiante_id, estado, estado_final").eq("institucion_id", institucionId).eq("grupo_id", grupoId)
       .overrideTypes<FilaMatricula[], { merge: false }>(),
     supabase.rpc("estudiantes_de_mi_institucion"),
     migracionAplicada(supabase),
   ])
+  const publicacionActiva = evals.publicacion
   if (evals.error || mats.error) {
     console.error("[evaluaciones] grupo", evals.error?.code ?? mats.error?.code, evals.error?.message ?? mats.error?.message)
     throw new Error("No se pudieron cargar las evaluaciones del grupo.")
@@ -162,6 +175,7 @@ export async function obtenerEvaluacionesGrupo(institucionId: string, grupoId: s
     gestionDisponible: gestion,
     grupoEditable: grupo.estado !== "cerrado" && grupo.estado !== "cancelado",
     admiteResultados: grupo.estado === "en_curso" || grupo.estado === "cerrado",
+    publicacionActiva,
   }
 }
 

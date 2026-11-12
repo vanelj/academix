@@ -1,14 +1,17 @@
 /**
  * Interruptor de la revisión manual de comprobantes (revisar_pago).
  *
- * Se mantiene en false hasta verificar en la base real la definición de
- * revisar_pago, los disparadores de anular_matricula_v5 y las políticas
- * del bucket (docs/diagnostico), y probar con comprobantes de prueba
- * autorizados y sesiones reales.
+ * ACTIVADO el 06-11-2026 a pedido de la institución, para la compra de cursos
+ * (pago completo con comprobante verificado por la institución, sin pasarela).
+ * Antes de usarlo con pagos reales:
+ *   1. Aplicar docs/migraciones/solicitudes_estado_grupo_v5.sql (impide aprobar
+ *      un pago en un grupo cancelado o cerrado: revisar_pago no lo comprueba).
+ *   2. Probar con cuentas de prueba (docs/diagnostico/pruebas_pagos_v5.sql y el
+ *      flujo completo desde la app).
  * Lo comprueba la acción del servidor, no solo la interfaz: cambiarlo exige
  * modificar el código y desplegar.
  */
-export const REVISION_PAGOS_HABILITADA = false
+export const REVISION_PAGOS_HABILITADA = true
 
 export const MOTIVO_REVISION_DESHABILITADA =
   "La aprobación y el rechazo de comprobantes están deshabilitados temporalmente mientras se verifican las protecciones de la base de datos (estado del grupo, anulación de matrículas y cuotas). Puedes consultar el comprobante y sus datos."

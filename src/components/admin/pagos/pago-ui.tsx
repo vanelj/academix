@@ -44,12 +44,12 @@ export function EstadoCuotaBadge({ cuota }: { cuota: Pick<CuotaAdmin, "estado" |
   return <Badge variant={variante}>{ETIQUETA_ESTADO_CUOTA[cuota.estado]}</Badge>
 }
 
-/** Pestañas del módulo «Pagos y mensualidades» (una sola entrada de menú). */
+/** Pestañas del módulo «Pagos» (una sola entrada de menú). Las cuotas solo existen en cursos anteriores al pago completo. */
 export function PagosTabs({ actual }: { actual: "pagos" | "cuotas" | "medios" | "verificacion" }) {
   const pestañas = [
-    { id: "pagos", href: "/admin/pagos", texto: "Pagos y comprobantes" },
-    { id: "cuotas", href: "/admin/pagos/cuotas", texto: "Cuotas" },
+    { id: "pagos", href: "/admin/pagos", texto: "Comprobantes" },
     { id: "medios", href: "/admin/pagos/medios", texto: "Medios de cobro" },
+    { id: "cuotas", href: "/admin/pagos/cuotas", texto: "Cuotas anteriores" },
     { id: "verificacion", href: "/admin/pagos/verificacion", texto: "Verificación" },
   ] as const
   return (

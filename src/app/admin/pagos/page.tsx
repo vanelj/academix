@@ -8,12 +8,12 @@ import { requerirPanel } from "@/lib/auth/contexto"
 import { obtenerPagos, type PagoAdmin } from "@/lib/pagos/datos"
 
 export const metadata: Metadata = {
-  title: "Pagos y mensualidades · Academix",
+  title: "Pagos · Academix",
 }
 
 const ESTADOS = ["pendiente", "pagado", "rechazado"] as const
 
-// Módulo "Pagos y mensualidades": solo administrador con rol activo; la institución sale del perfil.
+// Módulo "Pagos": solo administrador con rol activo; la institución sale del perfil.
 export default async function PagosPage({ searchParams }: PageProps<"/admin/pagos">) {
   const sesion = await requerirPanel("admin")
   const institucionId = sesion.perfil.institucionId
@@ -22,7 +22,7 @@ export default async function PagosPage({ searchParams }: PageProps<"/admin/pago
 
   const encabezado = (
     <>
-      <PageHeader title="Pagos y mensualidades" description="Comprobantes presentados por los estudiantes y cuotas de las matrículas de tu institución." />
+      <PageHeader title="Pagos" description="Comprobantes de las compras de cursos y certificados que envían tus estudiantes." />
       <PagosTabs actual="pagos" />
     </>
   )

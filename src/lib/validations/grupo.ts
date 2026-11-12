@@ -93,6 +93,8 @@ export const horarioSchema = z
           return false
         }
       }, "Introduce un enlace válido que empiece por https://"),
+    /** Aula, sede o ubicación (clases presenciales). Solo se envía si la columna existe (aula_academica_v5). */
+    ubicacion: z.string().trim().max(200, "Máximo 200 caracteres.").optional(),
   })
   .refine((h) => h.hora_fin > h.hora_inicio, {
     message: "La hora de fin debe ser posterior a la de inicio.",
@@ -124,6 +126,7 @@ export function horarioParaGuardar(v: HorarioValues) {
     hora_inicio: v.hora_inicio,
     hora_fin: v.hora_fin,
     enlace_clase: v.enlace_clase === "" ? null : v.enlace_clase,
+    ...(v.ubicacion !== undefined ? { ubicacion: v.ubicacion.replace(/\s+/g, " ").trim().slice(0, 200) || null } : {}),
   }
 }
 

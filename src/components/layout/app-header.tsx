@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { CampanaAvisos } from "@/components/layout/campana-avisos"
 import { UserNav } from "@/components/layout/user-nav"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { extraPageTitles, getActiveNavItem, roleConfig } from "@/config/navigation"
@@ -57,6 +58,7 @@ export function AppHeader({ user, isDemo, menuOpen, onMenuClick }: AppHeaderProp
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {!isDemo && <CampanaAvisos />}
         <ThemeToggle />
         <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
         <UserNav user={user} />

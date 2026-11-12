@@ -21,6 +21,10 @@ export const ETIQUETA_TIPO_MEDIO: Record<TipoMedio, string> = {
 
 export const esBilletera = (t: TipoMedio) => t === "yape" || t === "plin"
 
+/** Título visible de un medio de cobro (p. ej. «Yape» o «Transferencia · BCP»). Sirve en servidor y cliente. */
+export const tituloMedio = (m: { tipo: TipoMedio; banco: string | null }) =>
+  esBilletera(m.tipo) || !m.banco ? ETIQUETA_TIPO_MEDIO[m.tipo] : `${ETIQUETA_TIPO_MEDIO[m.tipo]} · ${m.banco}`
+
 /** Sugerencias del campo banco (se puede escribir cualquier otro). */
 export const BANCOS_SUGERIDOS = [
   "BCP",

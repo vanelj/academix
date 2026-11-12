@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import type { ShellUser } from "@/config/demo-user"
 import type { Role } from "@/config/navigation"
+import { activacionPendiente } from "@/lib/auth/activacion"
 import { esRol, panelDeRol } from "@/lib/auth/roles"
 import { createClient } from "@/lib/supabase/server"
 
@@ -31,11 +32,13 @@ export type PerfilSesion = {
 
 export type ContextoAuth =
   | { estado: "sin_sesion" }
-  | { estado: "sin_perfil"; userId: string; email: string | null }
+  | { estado: "sin_perfil"; userId: string; email: string | null; activacionPendiente: boolean }
   | {
       estado: "con_perfil"
       userId: string
       email: string | null
+      /** Cuenta invitada que aún no creó su contraseña: solo puede ir a /activar-cuenta. */
+      activacionPendiente: boolean
       perfil: PerfilSesion
       /** Roles asignados y habilitados (usuario_roles.activo). */
       roles: Role[]
@@ -55,6 +58,7 @@ export const obtenerContexto = cache(async (): Promise<ContextoAuth> => {
 
   const userId = claims.sub
   const email = typeof claims.email === "string" ? claims.email : null
+  const pendiente = activacionPendiente(claims)
 
   const { data: perfil, error: perfilError } = await supabase
     .from("perfiles")
@@ -67,7 +71,7 @@ export const obtenerContexto = cache(async (): Promise<ContextoAuth> => {
     throw new Error("No se pudo comprobar el perfil de la cuenta.")
   }
 
-  if (!perfil) return { estado: "sin_perfil", userId, email }
+  if (!perfil) return { estado: "sin_perfil", userId, email, activacionPendiente: pendiente }
 
   const { data: filasRoles, error: rolesError } = await supabase
     .from("usuario_roles")
@@ -102,6 +106,7 @@ export const obtenerContexto = cache(async (): Promise<ContextoAuth> => {
     estado: "con_perfil",
     userId,
     email,
+    activacionPendiente: pendiente,
     perfil: {
       id: perfil.id,
       nombres: perfil.nombres,
@@ -128,8 +133,9 @@ export function destinoSegunContexto(ctx: ContextoAuth): string {
     case "sin_sesion":
       return "/login"
     case "sin_perfil":
-      return "/completar-registro"
+      return ctx.activacionPendiente ? "/activar-cuenta" : "/completar-registro"
     case "con_perfil":
+      if (ctx.activacionPendiente) return "/activar-cuenta"
       if (!ctx.perfil.activo || ctx.roles.length === 0) return "/cuenta"
       if (ctx.roles.length === 1 && ctx.rolActivo === ctx.roles[0]) {
         return panelDeRol(ctx.rolActivo)
@@ -150,6 +156,8 @@ export async function requerirPanel(rol: Role): Promise<SesionPanel> {
   const ctx = await obtenerContexto()
 
   if (ctx.estado === "sin_sesion") redirect("/login")
+  // Invitado sin contraseña: primero debe activar su cuenta.
+  if (ctx.activacionPendiente) redirect("/activar-cuenta")
   if (ctx.estado === "sin_perfil") redirect("/completar-registro")
   if (!ctx.perfil.activo || ctx.roles.length === 0) redirect("/cuenta")
   if (!ctx.roles.includes(rol) || ctx.rolActivo !== rol) redirect("/seleccionar-rol")
@@ -166,6 +174,7 @@ export async function institucionDelAdmin(): Promise<string | null> {
   const ctx = await obtenerContexto()
   if (
     ctx.estado !== "con_perfil" ||
+    ctx.activacionPendiente ||
     !ctx.perfil.activo ||
     ctx.rolActivo !== "admin" ||
     !ctx.perfil.institucionId
@@ -173,6 +182,25 @@ export async function institucionDelAdmin(): Promise<string | null> {
     return null
   }
   return ctx.perfil.institucionId
+}
+
+/**
+ * Para acciones de servidor del docente: su id y su institución, o null.
+ * Exige perfil activo y rol docente ACTIVO (el mismo que usa la RLS
+ * «docente gestiona calificaciones» mediante privado.es_docente_del_grupo).
+ */
+export async function docenteActual(): Promise<{ userId: string; institucionId: string } | null> {
+  const ctx = await obtenerContexto()
+  if (
+    ctx.estado !== "con_perfil" ||
+    ctx.activacionPendiente ||
+    !ctx.perfil.activo ||
+    ctx.rolActivo !== "docente" ||
+    !ctx.perfil.institucionId
+  ) {
+    return null
+  }
+  return { userId: ctx.userId, institucionId: ctx.perfil.institucionId }
 }
 
 export function nombreCompleto(perfil: PerfilSesion) {

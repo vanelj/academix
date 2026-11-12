@@ -70,8 +70,8 @@
 :root {
   color-scheme: light;
 
-  /* Academix Vibrant: crema, índigo, violeta y acentos amarillo, coral y menta. */
-  --background: #fff8ee;
+  /* Academix Vibrant: fondo neutro casi blanco, índigo, violeta y acentos amarillo, coral y menta. */
+  --background: #f8f8fb;
   --foreground: #1b1446;
   --card: #ffffff;
   --card-foreground: #1b1446;
@@ -82,12 +82,12 @@
   --primary-foreground: #ffffff;
   --secondary: #eee7ff;
   --secondary-foreground: #1b1446;
-  --muted: #f7eedf;
+  --muted: #f1f1f6;
   --muted-foreground: #554d78;
   --accent: #f3edff;
   --accent-foreground: #1b1446;
 
-  /* Estados con contraste AA sobre blanco y crema. */
+  /* Estados con contraste AA sobre blanco y el fondo claro. */
   --destructive: #b91c1c;
   --destructive-foreground: #ffffff;
   --success: #0e7a55;
@@ -95,8 +95,8 @@
   --warning: #92400e;
   --warning-foreground: #ffffff;
 
-  --border: #efe4d2;
-  --input: #e4d6c0;
+  --border: #e5e5ee;
+  --input: #d9d9e3;
   --ring: #8b6cff;
 
   --chart-1: #6c3bf5;
@@ -107,13 +107,13 @@
 
   --radius: 0.875rem;
 
-  --sidebar: #fffdf8;
+  --sidebar: #ffffff;
   --sidebar-foreground: #1b1446;
   --sidebar-primary: #6c3bf5;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #eee7ff;
   --sidebar-accent-foreground: #4a23c9;
-  --sidebar-border: #efe4d2;
+  --sidebar-border: #e5e5ee;
   --sidebar-ring: #8b6cff;
 }
 

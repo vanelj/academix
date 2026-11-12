@@ -114,6 +114,17 @@ export interface FilterOption {
  * Rutas configurables. Las que llevan parámetros usan `:nombre`
  * y se resuelven con `buildHref()`.
  */
+/** Cuenta con sesión iniciada (la cabecera muestra su panel en lugar de «Iniciar sesión»). */
+export interface PublicAccount {
+  /** Nombre visible (o correo si aún no tiene perfil). */
+  name: string;
+  /** Rol activo para el usuario, p. ej. «Estudiante». */
+  roleLabel: string;
+  panelHref: string;
+  /** Texto del acceso, p. ej. «Mi panel de estudiante». */
+  panelLabel: string;
+}
+
 export interface PublicRoutes {
   home: string;
   courses: string;

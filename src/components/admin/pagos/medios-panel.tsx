@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react"
 
+import { GestorQrMedio } from "@/components/admin/pagos/qr-medio"
 import { DatosMedioCobro, IconoMedio, tituloMedio } from "@/components/pagos/medio-cobro"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,7 +37,7 @@ import {
 import { cn } from "@/lib/utils"
 
 /** Medios de cobro de la institución: el dinero llega directo a sus cuentas; Academix no lo recibe. */
-export function MediosPanel({ medios }: { medios: MedioCobro[] }) {
+export function MediosPanel({ medios, qrDisponible = false }: { medios: MedioCobro[]; qrDisponible?: boolean }) {
   const router = useRouter()
   const [editando, setEditando] = useState<{ id: string | null; valores: MedioCobroValues } | null>(null)
   const [eliminar, setEliminar] = useState<MedioCobro | null>(null)
@@ -117,6 +118,7 @@ export function MediosPanel({ medios }: { medios: MedioCobro[] }) {
                     <Badge variant={m.activo ? "success" : "outline"}>{m.activo ? "Habilitado" : "Deshabilitado"}</Badge>
                   </div>
                   <DatosMedioCobro medio={m} />
+                  {esBilletera(m.tipo) && <GestorQrMedio medioId={m.id} tieneQr={!!m.qr_url} disponible={qrDisponible} />}
                   <div className="mt-auto flex flex-wrap gap-2 pt-1">
                     <Button size="sm" variant="outline" onClick={() => setEditando({ id: m.id, valores: aValores(m) })} disabled={procesando !== null}>
                       <Pencil aria-hidden />

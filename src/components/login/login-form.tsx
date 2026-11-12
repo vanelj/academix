@@ -39,7 +39,7 @@ type Estado =
 
 export type AvisoLogin = { tipo: "exito" | "info" | "error"; mensaje: string }
 
-export function LoginForm({ aviso }: { aviso?: AvisoLogin | null }) {
+export function LoginForm({ aviso, retorno = null }: { aviso?: AvisoLogin | null; retorno?: string | null }) {
   const router = useRouter()
   const [estado, setEstado] = useState<Estado>({ tipo: "inicial" })
   const [reenviando, setReenviando] = useState(false)
@@ -85,7 +85,7 @@ export function LoginForm({ aviso }: { aviso?: AvisoLogin | null }) {
 
     // 2. El servidor valida la sesión y decide el destino según perfil y roles reales.
     try {
-      const resultado = await destinoTrasLogin()
+      const resultado = await destinoTrasLogin(retorno ?? undefined)
       if (!resultado.ok) return fallar({ tipo: "error", mensaje: resultado.mensaje })
       router.replace(resultado.destino)
       router.refresh()

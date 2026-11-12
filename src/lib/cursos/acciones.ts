@@ -30,7 +30,7 @@ import {
  */
 
 export type ResultadoCurso =
-  | { ok: true; id: string; aviso?: string }
+  | { ok: true; id: string; aviso?: string; /** El curso ya existía con ese id (reintento de una creación). */ existente?: boolean }
   | {
       ok: false
       mensaje: string
@@ -63,15 +63,28 @@ const CATEGORIA_INVALIDA: Fallo = {
 // Crear
 // ---------------------------------------------------------------------------
 
-export async function crearCurso(datos: unknown): Promise<ResultadoCurso> {
+/**
+ * `idCliente` (opcional): id generado por el asistente antes del primer intento.
+ * Si un reintento encuentra ese curso ya creado en la institución, devuelve
+ * `existente: true` en lugar de crear otro (la respuesta del primer intento
+ * pudo perderse con la red).
+ */
+export async function crearCurso(datos: unknown, idCliente?: unknown): Promise<ResultadoCurso> {
   const institucionId = await institucionDelAdmin()
   if (!institucionId) return SIN_PERMISO
 
   const validacion = cursoSchema.safeParse(datos)
-  if (!validacion.success) return DATOS_INVALIDOS
+  const idPropio = idCliente === undefined ? { success: true as const, data: undefined } : idCursoSchema.safeParse(idCliente)
+  if (!validacion.success || !idPropio.success) return DATOS_INVALIDOS
   const valores = validacion.data
 
   const supabase = await createClient()
+  if (idPropio.data) {
+    const previo = await cursoDeInstitucion(supabase, institucionId, idPropio.data)
+    if (previo === "error") return falloBD({ message: "lectura del curso" })
+    if (previo) return { ok: true, id: previo.id, existente: true }
+  }
+
   const categoria = await categoriaDeInstitucion(supabase, institucionId, valores.categoria_id)
   if (categoria === "error") return falloBD({ message: "lectura de categoría" })
   if (!categoria?.activo) return CATEGORIA_INVALIDA
@@ -79,9 +92,16 @@ export async function crearCurso(datos: unknown): Promise<ResultadoCurso> {
   // estado y modalidad toman su valor por defecto en la BD: 'borrador' y 'virtual'.
   const { data, error } = await supabase
     .from("cursos")
-    .insert({ institucion_id: institucionId, ...cursoParaGuardar(valores) })
+    .insert({ ...(idPropio.data ? { id: idPropio.data } : {}), institucion_id: institucionId, ...cursoParaGuardar(valores) })
     .select("id")
-  if (error) return falloBD(error)
+  if (error) {
+    // Dos intentos simultáneos con el mismo id: el otro ya lo creó.
+    if (error.code === "23505" && idPropio.data) {
+      const previo = await cursoDeInstitucion(supabase, institucionId, idPropio.data)
+      if (previo && previo !== "error") return { ok: true, id: previo.id, existente: true }
+    }
+    return falloBD(error)
+  }
   const id = data?.[0]?.id as string | undefined
   if (!id) return SIN_PERMISO
 

@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   title: "Nuevo curso · Academix",
 }
 
-// Creación guiada: el asistente crea el curso como borrador al guardar el paso 1
-// y continúa en /admin/cursos/[id]/asistente.
+// Creación guiada en 6 pasos: todo se configura en memoria y el curso se crea
+// (como borrador o publicado) solo al guardar en el último paso.
 export default async function NuevoCursoPage() {
   const sesion = await requerirPanel("admin")
   const institucionId = sesion.perfil.institucionId
@@ -22,7 +22,7 @@ export default async function NuevoCursoPage() {
   const encabezado = (
     <PageHeader
       title="Nuevo curso"
-      description="Te guiaremos paso a paso. El curso se guarda como borrador y no aparece en el catálogo hasta que lo publiques."
+      description="Completa los pasos a tu ritmo: nada se guarda hasta el paso final, donde eliges guardarlo como borrador o publicarlo."
       actions={
         <Link href="/admin/cursos" className={buttonVariants({ variant: "ghost" })}>
           <ArrowLeft aria-hidden />

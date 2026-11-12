@@ -16,6 +16,8 @@ export type Horario = {
   hora_inicio: string
   hora_fin: string
   enlace_clase: string | null
+  /** undefined = columna no disponible (sin aula_academica_v5). */
+  ubicacion?: string | null
 }
 
 export type GrupoResumen = {
@@ -30,16 +32,18 @@ export type GrupoResumen = {
   created_at: string
   curso: { id: string; nombre: string; estado: string } | null
   docente: { id: string; nombre: string } | null
-  horarios: Omit<Horario, "enlace_clase">[]
+  horarios: Omit<Horario, "enlace_clase" | "ubicacion">[]
 }
 
-export type GrupoDetalle = GrupoResumen & {
+export type GrupoDetalle = Omit<GrupoResumen, "horarios"> & {
   horarios: Horario[]
   /** Registros que impiden eliminar el grupo. null = no se pudo contar. */
   dependencias: { matriculas: number; solicitudes: number; evaluaciones: number } | null
   cursoConCondiciones: boolean
   /** El docente asignado tiene perfil activo y el rol docente habilitado. */
   docenteHabilitado: boolean
+  /** horarios.ubicacion existe (aula_academica_v5): se puede indicar aula o sede. */
+  ubicacionDisponible: boolean
 }
 
 export type OpcionCurso = { id: string; nombre: string; estado: string }
@@ -141,9 +145,7 @@ export async function obtenerGrupo(institucionId: string, grupoId: string): Prom
       ? supabase.from("perfiles").select("id, nombres, apellidos, activo").eq("institucion_id", institucionId).eq("id", g.docente_id).maybeSingle()
           .overrideTypes<{ id: string; nombres: string; apellidos: string; activo: boolean }, { merge: false }>()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from("horarios").select("id, dia_semana, hora_inicio, hora_fin, enlace_clase").eq("institucion_id", institucionId)
-      .eq("grupo_id", grupoId).order("dia_semana").order("hora_inicio")
-      .overrideTypes<Horario[], { merge: false }>(),
+    leerHorariosGrupo(institucionId, grupoId),
     cuenta("matriculas"),
     cuenta("solicitudes_inscripcion"),
     cuenta("evaluaciones"),
@@ -171,6 +173,7 @@ export async function obtenerGrupo(institucionId: string, grupoId: string): Prom
       ? null
       : { matriculas: matriculas.count ?? 0, solicitudes: solicitudes.count ?? 0, evaluaciones: evaluaciones.count ?? 0 },
     cursoConCondiciones: (condiciones.data?.length ?? 0) > 0,
+    ubicacionDisponible: horarios.ubicacionDisponible,
   }
 }
 
@@ -195,6 +198,17 @@ export async function opcionesCursos(institucionId: string): Promise<OpcionCurso
  * Docentes asignables: rol docente habilitado y perfil activo. Si el grupo ya
  * tiene un docente que dejó de estarlo, se incluye marcado para no perder la relación.
  */
+/** Horarios del grupo con la ubicación si la columna existe (aula_academica_v5); si no, sin ella. */
+async function leerHorariosGrupo(institucionId: string, grupoId: string) {
+  const supabase = await createClient()
+  const consulta = (cols: string) =>
+    supabase.from("horarios").select(cols).eq("institucion_id", institucionId).eq("grupo_id", grupoId)
+      .order("dia_semana").order("hora_inicio").overrideTypes<Horario[], { merge: false }>()
+  const r = await consulta("id, dia_semana, hora_inicio, hora_fin, enlace_clase, ubicacion")
+  if (r.error?.code === "42703") return { ...(await consulta("id, dia_semana, hora_inicio, hora_fin, enlace_clase")), ubicacionDisponible: false }
+  return { ...r, ubicacionDisponible: true }
+}
+
 export async function opcionesDocentes(institucionId: string, docenteActual?: string | null): Promise<OpcionDocente[]> {
   const supabase = await createClient()
   const { data: roles, error } = await supabase

@@ -26,10 +26,10 @@ export default async function EstudiantePage() {
 
       <Indicadores
         items={[
-          { icono: ClipboardCheck, titulo: "Matrículas activas", valor: r.matriculas, descripcion: "Cursos en los que estás matriculado." },
-          { icono: Inbox, titulo: "Solicitudes pendientes", valor: r.solicitudes, descripcion: "En revisión por la institución." },
-          { icono: Bookmark, titulo: "Reservas vigentes", valor: r.reservas, descripcion: "Vacantes reservadas aún no vencidas." },
-          { icono: Receipt, titulo: "Cuotas por pagar", valor: r.cuotas, descripcion: "Pendientes o con pago parcial." },
+          { icono: ClipboardCheck, titulo: "Matrículas activas", valor: r.matriculas, descripcion: "Cursos en los que estás matriculado.", href: "/estudiante/cursos" },
+          { icono: Inbox, titulo: "Solicitudes pendientes", valor: r.solicitudes, descripcion: "En revisión por la institución.", href: "/estudiante/solicitudes" },
+          { icono: Bookmark, titulo: "Reservas vigentes", valor: r.reservas, descripcion: "Vacantes reservadas aún no vencidas.", href: "/estudiante/solicitudes" },
+          { icono: Receipt, titulo: "Cuotas por pagar", valor: r.cuotas, descripcion: "Pendientes o con pago parcial.", href: "/estudiante/pagos" },
         ]}
       />
 

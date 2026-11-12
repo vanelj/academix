@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CircleAlert, Info, Loader2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
+import { CircleAlert, Eye, EyeOff, Info, Loader2, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react"
 
 import { MatriculaBadge } from "@/components/admin/estudiantes/estudiante-ui"
 import { fechaSimple } from "@/components/solicitudes/solicitud-ui"
@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { eliminarEvaluacion, guardarEvaluacion, reabrirResultado, registrarResultado, registrarResultadosGrupo } from "@/lib/evaluaciones/acciones"
 import { ETIQUETA_CALCULO } from "@/lib/evaluaciones/calculo"
 import type { Evaluacion, EvaluacionesGrupo, FilaEstudianteGrupo } from "@/lib/evaluaciones/datos"
+import { publicarEvaluacion } from "@/lib/evaluaciones/publicacion"
 import { notificar } from "@/lib/notificaciones"
 import { EVALUACION_DESCRIPCION_MAX, EVALUACION_NOMBRE_MAX, evaluacionSchema, type EvaluacionValues } from "@/lib/validations/evaluacion"
 import { cn } from "@/lib/utils"
@@ -33,7 +34,8 @@ const nota = (n: number) => n.toLocaleString("es-PE", { minimumFractionDigits: 2
 
 export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
   const router = useRouter()
-  const { grupo, evaluaciones, estudiantes, notaAprobatoria, gestionDisponible, grupoEditable, admiteResultados } = datos
+  const { grupo, evaluaciones, estudiantes, notaAprobatoria, gestionDisponible, grupoEditable, admiteResultados, publicacionActiva } = datos
+  const sinPublicar = publicacionActiva ? evaluaciones.filter((e) => !e.publicada_en) : []
   const [editando, setEditando] = useState<{ id: string | null; valores: EvaluacionValues } | null>(null)
   const [eliminar, setEliminar] = useState<Evaluacion | null>(null)
   const [reabrir, setReabrir] = useState<FilaEstudianteGrupo | null>(null)
@@ -95,6 +97,7 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
                     <th scope="col" className="px-3 py-2 text-left font-medium">Evaluación</th>
                     <th scope="col" className="px-3 py-2 text-right font-medium">Peso</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium">Fecha</th>
+                    {publicacionActiva && <th scope="col" className="px-3 py-2 text-left font-medium">Notas</th>}
                     <th scope="col" className="px-3 py-2"><span className="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
@@ -107,6 +110,28 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{e.peso.toLocaleString("es-PE")} %</td>
                       <td className="px-3 py-2">{e.fecha ? fechaSimple(e.fecha) : "—"}</td>
+                      {publicacionActiva && (
+                        <td className="px-3 py-2">
+                          <span className={cn("inline-flex items-center gap-1 text-xs", e.publicada_en ? "text-success" : "text-muted-foreground")}>
+                            {e.publicada_en ? <Eye className="size-3.5" aria-hidden /> : <EyeOff className="size-3.5" aria-hidden />}
+                            {e.publicada_en ? "Publicadas" : "Borrador"}
+                          </span>
+                          {grupo.estado !== "cancelado" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="ml-1 h-7 px-2 text-xs"
+                              disabled={procesando !== null}
+                              onClick={() => ejecutar(`pub-${e.id}`, () => publicarEvaluacion(e.id, !e.publicada_en), {
+                                proceso: e.publicada_en ? "Retirando publicación…" : "Publicando notas…",
+                                exito: e.publicada_en ? "Publicación retirada" : "Notas publicadas",
+                              })}
+                            >
+                              {e.publicada_en ? "Retirar" : <><Send className="size-3" aria-hidden />Publicar</>}
+                            </Button>
+                          )}
+                        </td>
+                      )}
                       <td className="px-2 py-1.5 text-right whitespace-nowrap">
                         {puedeEditar && (
                           <>
@@ -126,7 +151,7 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
                   <tr>
                     <td className="px-3 py-2">Total</td>
                     <td className={cn("px-3 py-2 text-right tabular-nums", Math.round(total * 100) !== 10000 && "text-warning")}>{total.toLocaleString("es-PE")} %</td>
-                    <td colSpan={2} />
+                    <td colSpan={publicacionActiva ? 3 : 2} />
                   </tr>
                 </tfoot>
               </table>
@@ -158,6 +183,18 @@ export function GrupoEvaluaciones({ datos }: { datos: EvaluacionesGrupo }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          {!grupo.docente && grupo.estado !== "cancelado" && (
+            <p role="status" className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm">
+              Este grupo no tiene docente asignado: nadie puede registrar sus notas todavía. Asígnalo en «Grupos y horarios».
+            </p>
+          )}
+          {gestionDisponible && admiteResultados && listos.length > 0 && sinPublicar.length > 0 && (
+            <p role="status" className="flex gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm">
+              <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+              {sinPublicar.length === 1 ? "Una evaluación sigue" : `${sinPublicar.length} evaluaciones siguen`} sin publicar ({sinPublicar.map((e) => e.nombre).join(", ")}).
+              Publícalas antes de registrar resultados para que los estudiantes vean las notas que los sustentan.
+            </p>
+          )}
           {gestionDisponible && admiteResultados && listos.length > 0 && (
             <Button size="sm" onClick={() => ejecutar("todos", () => registrarResultadosGrupo(grupo.id), { proceso: "Registrando resultados…", exito: "Resultados registrados" })} disabled={procesando !== null}>
               {procesando === "todos" && <Loader2 className="animate-spin" aria-hidden />}
