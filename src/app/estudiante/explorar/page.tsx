@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { requerirPanel } from "@/lib/auth/contexto"
+import { obtenerMisCursos } from "@/lib/estudiantes/mis-cursos"
+import { obtenerMisSolicitudes } from "@/lib/inscripcion/datos"
 import { opcionesDeOferta, obtenerOfertaCursos } from "@/lib/oferta/cursos"
 import { coincideEstado, disponibilidadCurso, type DisponibilidadCurso } from "@/lib/oferta/disponibilidad"
 import { enlaceFichaDesdePanel, leerFiltrosExplorar } from "@/lib/oferta/explorar"
@@ -43,9 +45,29 @@ const ORDEN: DisponibilidadCurso["estado"][] = ["abiertas", "proximamente", "en_
  * ficha del curso, donde el servidor y la BD validan grupo, vacantes y pagos.
  */
 export default async function ExplorarCursosPage({ searchParams }: PageProps<"/estudiante/explorar">) {
-  await requerirPanel("estudiante")
+  const sesion = await requerirPanel("estudiante")
   const filtros = leerFiltrosExplorar(await searchParams)
-  const [oferta, grupos] = await Promise.all([obtenerOfertaCursos(), obtenerGruposOferta().catch(() => null)])
+  const [oferta, grupos, misCursos, misSolicitudes] = await Promise.all([
+    obtenerOfertaCursos(),
+    obtenerGruposOferta().catch(() => null),
+    obtenerMisCursos(sesion.userId).then((r) => r.cursos).catch(() => []),
+    obtenerMisSolicitudes(sesion.userId).catch(() => []),
+  ])
+
+  // Cursos en los que el estudiante YA está (matrícula activa o solicitud en trámite):
+  // se separan para que «Explorar» muestre primero lo nuevo.
+  const propios = new Map<string, { etiqueta: string; href: string; accion: string }>()
+  for (const m of misCursos) {
+    if (m.estado === "activa" && m.curso) propios.set(m.curso.id, { etiqueta: "Matrícula activa", href: `/estudiante/cursos/${m.matriculaId}`, accion: "Ir a mi curso" })
+  }
+  for (const s of misSolicitudes) {
+    if (!s.curso || propios.has(s.curso.id) || s.reservaVencida || (s.estado !== "pendiente" && s.estado !== "reservada")) continue
+    propios.set(s.curso.id, s.pagoPendiente
+      ? { etiqueta: "Pago en revisión", href: "/estudiante/solicitudes", accion: "Ver mi solicitud" }
+      : s.importe_esperado > 0
+        ? { etiqueta: "Pago pendiente", href: `/estudiante/pagos/pagar?solicitud=${s.id}`, accion: "Completar pago" }
+        : { etiqueta: "Inscripción en trámite", href: "/estudiante/solicitudes", accion: "Ver mi solicitud" })
+  }
 
   const encabezado = (
     <PageHeader
@@ -100,16 +122,30 @@ export default async function ExplorarCursosPage({ searchParams }: PageProps<"/e
         a.nombre.localeCompare(b.nombre, "es")
     )
   const { instituciones, categorias } = opcionesDeOferta(oferta.cursos)
+  const disponibles = visibles.filter((c) => !propios.has(c.id))
+  const mios = visibles.filter((c) => propios.has(c.id))
 
   return (
     <>
       {encabezado}
       <FiltrosExplorarForm filtros={filtros} categorias={categorias} instituciones={instituciones} />
       <p className="mb-3 text-sm text-muted-foreground" role="status">
-        {visibles.length === 1 ? "1 curso" : `${visibles.length} cursos`}
+        {disponibles.length === 1 ? "1 curso disponible para ti" : `${disponibles.length} cursos disponibles para ti`}
         {grupos === null && " · No se pudo consultar el estado de los grupos."}
       </p>
-      {visibles.length === 0 ? (
+      {disponibles.length === 0 && mios.length > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted"><Compass className="size-5 text-muted-foreground" aria-hidden /></div>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {filtros.q || filtros.categoria || filtros.institucion || filtros.estado !== "todos"
+                ? "No hay otros cursos con estos filtros. Prueba con otros o quítalos."
+                : "Ya te inscribiste en todos los cursos publicados por ahora. Vuelve pronto: las instituciones publican nuevos cursos y grupos."}
+            </p>
+            <Link href="/estudiante/cursos" className={buttonVariants({ variant: "outline", size: "sm" })}>Ir a Mis cursos</Link>
+          </CardContent>
+        </Card>
+      ) : visibles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted"><Search className="size-5 text-muted-foreground" aria-hidden /></div>
@@ -119,7 +155,7 @@ export default async function ExplorarCursosPage({ searchParams }: PageProps<"/e
         </Card>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((c) => {
+          {disponibles.map((c) => {
             const d = disp.get(c.id)
             const visual = getCategoryVisual({ slug: "", name: c.categoria })
             return (
@@ -162,6 +198,28 @@ export default async function ExplorarCursosPage({ searchParams }: PageProps<"/e
             )
           })}
         </ul>
+      )}
+      {mios.length > 0 && (
+        <section aria-labelledby="ya-inscrita" className="mt-8 space-y-2">
+          <h2 id="ya-inscrita" className="text-sm font-semibold text-muted-foreground">Tus cursos e inscripciones</h2>
+          <ul className="divide-y rounded-xl border bg-card">
+            {mios.map((c) => {
+              const p = propios.get(c.id)!
+              return (
+                <li key={c.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-medium break-words">{c.nombre}</p>
+                    <p className="text-xs text-muted-foreground">{c.institucion}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant={p.etiqueta === "Matrícula activa" ? "success" : "warning"}>{p.etiqueta}</Badge>
+                    <Link href={p.href} className={buttonVariants({ variant: "outline", size: "sm" })}>{p.accion}</Link>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
       )}
       <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <Compass className="size-3.5" aria-hidden />
