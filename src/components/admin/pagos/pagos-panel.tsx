@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { DestinoPago, EstadoPago, PagoAdmin } from "@/lib/pagos/datos"
+import { hoyEnLima } from "@/lib/fechas"
 import { cn } from "@/lib/utils"
 import { claveNombre } from "@/lib/validations/categoria"
 
@@ -64,17 +65,16 @@ export function PagosPanel({ pagos, estadoInicial }: { pagos: PagoAdmin[]; estad
 
   const visibles = useMemo(() => {
     const clave = claveNombre(busqueda)
-    const d = desde ? new Date(`${desde}T00:00:00`).getTime() : null
-    const h = hasta ? new Date(`${hasta}T23:59:59`).getTime() : null
     return pagos.filter((p) => {
-      const t = new Date(p.fecha_pago).getTime()
+      // Día del registro en hora de Lima (no en la zona del dispositivo).
+      const t = hoyEnLima(p.fecha_pago)
       return (
         (estado === "todos" || p.estado === estado) &&
         (destino === TODOS || p.destino === (destino as DestinoPago)) &&
         (curso === TODOS || p.curso?.id === curso) &&
         (grupo === TODOS || p.grupo?.id === grupo) &&
-        (d === null || t >= d) &&
-        (h === null || t <= h) &&
+        (!desde || t >= desde) &&
+        (!hasta || t <= hasta) &&
         (clave === "" || claveNombre(`${p.estudiante.nombre ?? ""} ${p.referencia_operacion ?? ""}`).includes(clave))
       )
     })

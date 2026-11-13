@@ -3,8 +3,8 @@ import type { CuentaDocente, DocenteResumen } from "@/lib/docentes/datos"
 
 /** Elementos de presentación compartidos por el listado y la ficha de docentes. */
 
-export const formatoFechaDocente = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" })
-export const formatoFechaHoraDocente = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" })
+export const formatoFechaDocente = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" , timeZone: "America/Lima" })
+export const formatoFechaHoraDocente = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" , timeZone: "America/Lima" })
 
 export const ETIQUETA_ESTADO_GRUPO: Record<string, string> = {
   programado: "Programado",

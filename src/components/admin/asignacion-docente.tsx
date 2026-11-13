@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Search, UserRoundPlus } from "lucide-react"
 
+import { AvisoCruceDocente } from "@/components/admin/grupos/aviso-cruce-docente"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -33,7 +34,7 @@ async function ejecutar(grupoId: string, docenteId: string | null): Promise<bool
 export type DocenteElegible = { id: string; nombre: string; habilitado: boolean }
 
 /** Desde el grupo: Asignar docente → buscar → confirmar. */
-export function AsignarDocenteGrupo({ grupoId, actualId, docentes, bloqueado }: { grupoId: string; actualId: string | null; docentes: DocenteElegible[]; bloqueado?: boolean }) {
+export function AsignarDocenteGrupo({ grupoId, actualId, docentes, bloqueado, fechaInicio, fechaFin }: { grupoId: string; actualId: string | null; docentes: DocenteElegible[]; bloqueado?: boolean; fechaInicio?: string; fechaFin?: string }) {
   const id = useId()
   const router = useRouter()
   const [abierto, setAbierto] = useState(false)
@@ -83,6 +84,9 @@ export function AsignarDocenteGrupo({ grupoId, actualId, docentes, bloqueado }: 
             })}
             {lista.length === 0 && <p className="px-1 py-2 text-sm text-muted-foreground">{docentes.length ? "Ningún docente coincide." : "No hay docentes habilitados: regístralos en «Docentes»."}</p>}
           </div>
+          {elegido && elegido !== actualId && (
+            <AvisoCruceDocente grupoId={grupoId} docenteId={elegido} fechaInicio={fechaInicio?.slice(0, 10)} fechaFin={fechaFin?.slice(0, 10)} />
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAbierto(false)} disabled={enviando}>Cancelar</Button>
             <Button onClick={confirmar} disabled={enviando || elegido === actualId}>

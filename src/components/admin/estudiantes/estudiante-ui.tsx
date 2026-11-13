@@ -61,5 +61,5 @@ export function cursosRelacionados(e: Pick<EstudianteResumen, "matriculas" | "so
   return ids.size
 }
 
-export const formatoFechaEstudiante = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" })
-export const formatoFechaHoraEstudiante = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" })
+export const formatoFechaEstudiante = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" , timeZone: "America/Lima" })
+export const formatoFechaHoraEstudiante = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" , timeZone: "America/Lima" })

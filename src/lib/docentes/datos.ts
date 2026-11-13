@@ -67,7 +67,7 @@ type FilaPerfil = {
   activo: boolean
 }
 
-async function cuentas(ids: string[]): Promise<Map<string, CuentaDocente>> {
+export async function cuentas(ids: string[]): Promise<Map<string, CuentaDocente>> {
   const mapa = new Map<string, CuentaDocente>()
   const admin = clienteAdministrativo()
   if (!admin || ids.length === 0) return mapa

@@ -24,7 +24,7 @@ const soloConteo = { count: "exact", head: true } as const
 
 export async function resumenAdmin(institucionId: string) {
   const supabase = await createClient()
-  const [categorias, cursosPublicados, docentes, matriculasActivas, solicitudesPendientes, pagosPorRevisar, politicas] =
+  const [categorias, cursosPublicados, docentes, matriculasActivas, solicitudesPendientes, pagosCursos, pagosCertificados, politicas] =
     await Promise.all([
       contar("categorias", supabase.from("categorias").select("id", soloConteo).eq("institucion_id", institucionId)),
       contar("cursos", supabase.from("cursos").select("id", soloConteo).eq("institucion_id", institucionId).eq("estado", "publicado")),
@@ -32,9 +32,14 @@ export async function resumenAdmin(institucionId: string) {
       contar("matriculas", supabase.from("matriculas").select("id", soloConteo).eq("institucion_id", institucionId).eq("estado", "activa")),
       contar("solicitudes", supabase.from("solicitudes_inscripcion").select("id", soloConteo).eq("institucion_id", institucionId).eq("estado", "pendiente")),
       contar("pagos", supabase.from("pagos").select("id", soloConteo).eq("institucion_id", institucionId).eq("estado", "pendiente")),
+      // Cobros adicionales por certificado (certificados_v5). Sin la tabla, cuenta 0.
+      supabase.from("pagos_certificado").select("id", soloConteo).eq("institucion_id", institucionId).eq("estado", "pendiente")
+        .then(({ count, error }) => (error ? 0 : (count ?? 0))),
       contar("politicas", supabase.from("politicas_institucion").select("institucion_id", soloConteo).eq("institucion_id", institucionId)),
     ])
-  return { categorias, cursosPublicados, docentes, matriculasActivas, solicitudesPendientes, pagosPorRevisar, politicas }
+  // «Pagos por revisar» incluye los comprobantes de certificado.
+  const pagosPorRevisar = pagosCursos === null ? null : pagosCursos + pagosCertificados
+  return { categorias, cursosPublicados, docentes, matriculasActivas, solicitudesPendientes, pagosPorRevisar, pagosCertificados, politicas }
 }
 
 export async function resumenDocente(userId: string) {

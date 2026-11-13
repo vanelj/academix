@@ -1,4 +1,7 @@
 import { SITIO_URL } from "@/lib/correos/config"
+import { boton, caja, detalles as tablaDetalles, documento, escapar, lista as listaHtml, nota as notaHtml, parrafo, type Tono } from "@/lib/correos/diseno"
+
+export { escapar }
 
 /**
  * Plantillas de los correos transaccionales. Se construyen con los datos que la
@@ -8,8 +11,11 @@ import { SITIO_URL } from "@/lib/correos/config"
  * - Las instrucciones de pago son el texto que la institución escribió en sus
  *   políticas (politicas_institucion.texto_pagos). Si no lo configuró, se remite
  *   al estudiante a la institución: nunca se inventan cuentas ni datos bancarios.
- * - Los correos de Supabase Auth (recuperar contraseña, invitación docente) NO
- *   están aquí: los envía Supabase con su SMTP (ver docs/correos).
+ * - Los correos de Supabase Auth (invitación de docentes y administradores,
+ *   recuperación de contraseña) NO están aquí: los envía Supabase con el SMTP de
+ *   Resend y sus plantillas se generan con el MISMO diseño (npm run correos:sincronizar).
+ *   Así un evento nunca produce dos correos.
+ * - Diseño compartido: lib/correos/diseno.ts.
  */
 
 export const TIPOS_CORREO = [
@@ -27,6 +33,8 @@ export const TIPOS_CORREO = [
   "matricula_anulada",
   "recordatorio_cuota",
   "certificado_emitido",
+  "horario_cambiado",
+  "resultado_final",
 ] as const
 export type TipoCorreo = (typeof TIPOS_CORREO)[number]
 
@@ -34,6 +42,9 @@ export type CorreoRenderizado = { asunto: string; html: string; texto: string }
 
 type Datos = Record<string, unknown>
 type Contenido = {
+  /** Etiqueta superior y color del correo. */
+  etiqueta?: string
+  tono?: Tono
   asunto: string
   titulo: string
   parrafos: string[]
@@ -75,8 +86,6 @@ export function fechaHora(v: string | null): string | null {
   return `${d.toLocaleString("es-PE", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Lima" })} (hora de Lima)`
 }
 
-export const escapar = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 
 // ---------------------------------------------------------------------------
 // Contenido por tipo
@@ -221,6 +230,8 @@ const CONTENIDO: Record<TipoCorreo, (d: Datos) => Contenido> = {
   matricula_confirmada: (d) => {
     const cuotas = Array.isArray(d.cuotas) ? (d.cuotas as Datos[]) : []
     return {
+      etiqueta: "Matrícula",
+      tono: "menta",
       asunto: `Matrícula confirmada: ${txt(d, "curso") ?? "curso"}`,
       titulo: "¡Tu matrícula está confirmada!",
       parrafos: [
@@ -229,6 +240,8 @@ const CONTENIDO: Record<TipoCorreo, (d: Datos) => Contenido> = {
       ].filter(Boolean),
       detalles: [
         ["Institución", txt(d, "institucion")],
+        ["Grupo", txt(d, "grupo")],
+        ["Horario", txt(d, "horario")],
         ["Pago aprobado", soles(num(d, "monto_aprobado"))],
         ["Inicio de clases", fecha(txt(d, "fecha_inicio"))],
       ],
@@ -236,7 +249,7 @@ const CONTENIDO: Record<TipoCorreo, (d: Datos) => Contenido> = {
         (c) => `${txt(c, "concepto") ?? "Cuota"} ${txt(c, "numero") ?? ""}: ${soles(num(c, "importe")) ?? "—"} · vence el ${fecha(txt(c, "vencimiento")) ?? "—"}`
       ),
       instrucciones: cuotas.length > 0,
-      boton: { texto: "Ir a mi panel", ruta: "/estudiante" },
+      boton: { texto: "Entrar a mi curso", ruta: txt(d, "matricula_id") ? `/estudiante/cursos/${txt(d, "matricula_id")}` : "/estudiante/cursos" },
     }
   },
   matricula_anulada: (d) => {
@@ -258,9 +271,39 @@ const CONTENIDO: Record<TipoCorreo, (d: Datos) => Contenido> = {
       `${txt(d, "institucion") ?? "La institución"} emitió tu certificado de ${curso(d)}.`,
       "Puedes descargarlo cuando quieras desde tu cuenta, en «Mis certificados».",
     ],
-    detalles: [["Código de verificación", txt(d, "codigo")]],
+    etiqueta: "Certificado",
+    tono: "menta",
+    detalles: [["Institución", txt(d, "institucion")], ["Código de verificación", txt(d, "codigo")]],
     boton: { texto: "Ver mis certificados", ruta: "/estudiante/certificados" },
     nota: "Por seguridad, el certificado no se adjunta: descárgalo iniciando sesión en Academix.",
+  }),
+  horario_cambiado: (d) => ({
+    etiqueta: "Horario",
+    tono: "ambar",
+    asunto: `Cambió el horario de ${txt(d, "curso") ?? "tu curso"}`,
+    titulo: "Se actualizó el horario de tu curso",
+    parrafos: [
+      `${txt(d, "institucion") ?? "La institución"} actualizó el horario de ${curso(d)}.`,
+      "Revisa tu calendario: ya muestra las clases con el horario vigente.",
+    ],
+    detalles: [
+      ["Antes", txt(d, "anterior")],
+      ["Ahora", txt(d, "nuevo")],
+      ["Horario vigente", txt(d, "horario")],
+    ],
+    boton: { texto: "Ver mi calendario", ruta: "/estudiante/horarios" },
+    nota: "Si hubo varios cambios el mismo día, el calendario siempre muestra el horario actualizado.",
+  }),
+  resultado_final: (d) => ({
+    etiqueta: "Resultado académico",
+    tono: "violeta",
+    asunto: `Tu resultado final está disponible: ${txt(d, "curso") ?? "curso"}`,
+    titulo: "Tu resultado final está disponible",
+    parrafos: [
+      `${txt(d, "institucion") ?? "La institución"} registró tu resultado final en ${curso(d)}.`,
+      "Por privacidad, la nota no se incluye en este correo: consúltala iniciando sesión.",
+    ],
+    boton: { texto: "Ver evaluaciones y notas", ruta: txt(d, "matricula_id") ? `/estudiante/cursos/${txt(d, "matricula_id")}?seccion=notas` : "/estudiante/evaluaciones" },
   }),
   recordatorio_cuota: (d) => {
     const momento = txt(d, "momento")
@@ -297,61 +340,75 @@ export function esTipoCorreo(t: string): t is TipoCorreo {
   return (TIPOS_CORREO as readonly string[]).includes(t)
 }
 
+const ETIQUETA_POR_DEFECTO: Partial<Record<TipoCorreo, [string, Tono]>> = {
+  solicitud_recibida: ["Solicitud de inscripción", "violeta"],
+  reserva_confirmada: ["Reserva", "menta"],
+  solicitud_rechazada: ["Solicitud de inscripción", "coral"],
+  solicitud_cancelada: ["Solicitud de inscripción", "ambar"],
+  reserva_vencida: ["Reserva", "ambar"],
+  reserva_por_vencer: ["Reserva", "ambar"],
+  comprobante_recibido: ["Pago recibido", "violeta"],
+  comprobante_por_revisar: ["Pagos por revisar", "violeta"],
+  pago_rechazado: ["Pago no aprobado", "coral"],
+  cuota_confirmada: ["Pago aprobado", "menta"],
+  matricula_anulada: ["Matrícula", "coral"],
+  recordatorio_cuota: ["Recordatorio de pago", "ambar"],
+}
+
 /** Devuelve null si el tipo no existe (el procesador lo marca como fallido sin reintentar). */
 export function renderizarCorreo(tipo: string, datos: Datos): CorreoRenderizado | null {
   if (!esTipoCorreo(tipo)) return null
   const c = CONTENIDO[tipo](datos ?? {})
+  const [etiqueta, tono] = c.etiqueta ? [c.etiqueta, c.tono ?? "violeta"] : (ETIQUETA_POR_DEFECTO[tipo] ?? ["Academix", "violeta" as Tono])
   const institucion = txt(datos, "institucion")
   const contacto = [txt(datos, "institucion_correo"), txt(datos, "institucion_telefono")].filter(Boolean).join(" · ")
   const nombre = txt(datos, "nombre")
-  const detalles = (c.detalles ?? []).filter((x): x is [string, string] => Boolean(x[1]))
+  const filas = (c.detalles ?? []).filter((x): x is [string, string] => Boolean(x[1]))
   const instrucciones = c.instrucciones
     ? (txt(datos, "instrucciones_pago") ??
       `Consulta los medios de pago (Yape, Plin, depósito o transferencia) directamente con ${institucion ?? "la institución"}${contacto ? ` (${contacto})` : ""}.`)
     : null
   const url = c.boton ? `${SITIO_URL}${c.boton.ruta}` : null
-  const pie = institucion
+  const pieTexto = institucion
     ? `Este correo se envió por tu relación con ${institucion} en Academix.`
     : "Este correo se envió desde Academix."
-
   const saludo = nombre ? `Hola, ${nombre}:` : "Hola:"
   const e = escapar
-  const parrafo = (t: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#334155">${e(t)}</p>`
 
-  const html = `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(c.asunto)}</title></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0">
-<tr><td style="padding:20px 28px;border-bottom:1px solid #e2e8f0;font-size:18px;font-weight:700;color:#0f172a">Academix${institucion ? `<span style="font-weight:400;color:#64748b"> · ${e(institucion)}</span>` : ""}</td></tr>
-<tr><td style="padding:28px">
-<h1 style="margin:0 0 16px;font-size:21px;line-height:1.3;color:#0f172a">${e(c.titulo)}</h1>
-${parrafo(saludo)}
-${c.parrafos.map(parrafo).join("\n")}
-${detalles.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 18px;border:1px solid #e2e8f0;border-radius:8px">${detalles
-    .map(([k, v]) => `<tr><td style="padding:9px 12px;font-size:13px;color:#64748b;width:42%;border-bottom:1px solid #f1f5f9">${e(k)}</td><td style="padding:9px 12px;font-size:14px;color:#0f172a;font-weight:600;border-bottom:1px solid #f1f5f9">${e(v)}</td></tr>`)
-    .join("")}</table>` : ""}
-${c.lista?.length ? `<ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.7;color:#334155">${c.lista.map((l) => `<li>${e(l)}</li>`).join("")}</ul>` : ""}
-${instrucciones ? `<div style="margin:0 0 18px;padding:14px 16px;background:#f8fafc;border-left:3px solid #2563eb;border-radius:6px"><p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#0f172a">Instrucciones de pago</p><p style="margin:0;font-size:14px;line-height:1.6;color:#334155;white-space:pre-line">${e(instrucciones)}</p></div>` : ""}
-${url && c.boton ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px"><tr><td style="border-radius:8px;background:#2563eb"><a href="${e(url)}" style="display:inline-block;padding:11px 20px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">${e(c.boton.texto)}</a></td></tr></table>` : ""}
-${c.nota ? `<p style="margin:0;font-size:13px;line-height:1.5;color:#64748b">${e(c.nota)}</p>` : ""}
-</td></tr>
-<tr><td style="padding:16px 28px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.5;color:#94a3b8">${e(pie)}${contacto ? `<br>Contacto de la institución: ${e(contacto)}` : ""}<br>Correo automático; las respuestas llegan a la institución si configuró su correo de contacto.</td></tr>
-</table></td></tr></table></body></html>`
+  const cuerpo = [
+    parrafo(e(saludo)),
+    ...c.parrafos.map((t) => parrafo(e(t))),
+    tablaDetalles(filas.map(([k, v]) => [e(k), e(v)])),
+    listaHtml((c.lista ?? []).map(e)),
+    instrucciones ? caja("Instrucciones de pago", e(instrucciones)) : "",
+    url && c.boton ? boton(e(url), e(c.boton.texto)) : "",
+    c.nota ? notaHtml(e(c.nota)) : "",
+  ].join("\n")
+
+  const html = documento({
+    titulo: e(c.asunto),
+    preencabezado: e(c.parrafos[0] ?? c.titulo),
+    etiqueta: e(etiqueta),
+    tono,
+    encabezado: e(c.titulo),
+    institucion: institucion ? e(institucion) : null,
+    cuerpo,
+    pie: `${e(pieTexto)}${contacto ? `<br>Contacto de la institución: ${e(contacto)}` : ""}<br>Correo automático de Academix. Las respuestas llegan a la institución si configuró su correo de contacto.`,
+  })
 
   const texto = [
     c.titulo,
     "",
     saludo,
     ...c.parrafos,
-    ...(detalles.length ? ["", ...detalles.map(([k, v]) => `${k}: ${v}`)] : []),
+    ...(filas.length ? ["", ...filas.map(([k, v]) => `${k}: ${v}`)] : []),
     ...(c.lista?.length ? ["", ...c.lista.map((l) => `- ${l}`)] : []),
     ...(instrucciones ? ["", "Instrucciones de pago:", instrucciones] : []),
     ...(url && c.boton ? ["", `${c.boton.texto}: ${url}`] : []),
     ...(c.nota ? ["", c.nota] : []),
     "",
     "—",
-    pie,
+    pieTexto,
     ...(contacto ? [`Contacto de la institución: ${contacto}`] : []),
   ].join("\n")
 

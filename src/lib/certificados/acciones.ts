@@ -1,6 +1,9 @@
 "use server"
 
+import { despacharCorreos } from "@/lib/correos/despachar"
 import { revalidatePath } from "next/cache"
+
+import { problemaFirmante, type FirmanteBasico } from "@/lib/certificados/firma"
 import { z } from "zod"
 
 import { institucionDelAdmin } from "@/lib/auth/contexto"
@@ -62,7 +65,7 @@ async function verificarArchivo(supabase: Awaited<ReturnType<typeof createClient
 const nombrePlantilla = z.string().trim().min(1, "Introduce un nombre.").max(100, "Máximo 100 caracteres.")
 
 export async function crearPlantilla(datos: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const v = z.object({ nombre: nombrePlantilla, base: z.enum(["clasico", "ornamental", "moderno"]) }).safeParse(datos)
   if (!v.success) return { ok: false, gravedad: "error", mensaje: "Revisa los datos de la plantilla.", campos: campos(v.error) }
@@ -78,7 +81,7 @@ export async function crearPlantilla(datos: unknown): Promise<ResultadoCert> {
 
 /** Plantilla con fondo propio: el navegador ya subió el archivo a <institución>/fondos/<uuid>.<ext>. */
 export async function registrarPlantillaPropia(datos: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const v = z.object({ nombre: nombrePlantilla, ruta: z.string().max(200) }).safeParse(datos)
   if (!v.success) return { ok: false, gravedad: "error", mensaje: "Revisa los datos de la plantilla.", campos: campos(v.error) }
@@ -98,7 +101,7 @@ export async function registrarPlantillaPropia(datos: unknown): Promise<Resultad
 }
 
 export async function guardarDiseno(plantillaId: unknown, diseno: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(plantillaId)
   if (!id.success) return NO_ENCONTRADO
@@ -114,7 +117,7 @@ export async function guardarDiseno(plantillaId: unknown, diseno: unknown): Prom
 }
 
 export async function actualizarPlantilla(plantillaId: unknown, cambios: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(plantillaId)
   const v = z.object({ nombre: nombrePlantilla.optional(), activo: z.boolean().optional(), predeterminada: z.literal(true).optional() }).safeParse(cambios)
@@ -134,7 +137,7 @@ export async function actualizarPlantilla(plantillaId: unknown, cambios: unknown
 }
 
 export async function eliminarPlantilla(plantillaId: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(plantillaId)
   if (!id.success) return NO_ENCONTRADO
@@ -159,7 +162,7 @@ const firmanteSchema = z.object({
 })
 
 export async function guardarFirmante(firmanteId: unknown, datos: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = firmanteId === null ? null : uuid.safeParse(firmanteId)
   if (id && !id.success) return NO_ENCONTRADO
@@ -188,7 +191,7 @@ export async function guardarFirmante(firmanteId: unknown, datos: unknown): Prom
 }
 
 export async function cambiarEstadoFirmante(firmanteId: unknown, activo: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const v = z.object({ id: uuid, activo: z.boolean() }).safeParse({ id: firmanteId, activo })
   if (!v.success) return NO_ENCONTRADO
@@ -203,7 +206,7 @@ export async function cambiarEstadoFirmante(firmanteId: unknown, activo: unknown
 
 /** Enlace firmado (120 s) a una imagen privada de la institución (fondo o firma) para el editor. */
 export async function enlaceRecurso(ruta: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const r = z.string().max(200).safeParse(ruta)
   if (!r.success || !new RegExp(`^${institucionId}/(fondos|firmas)/${UUID_RE}\\.(png|jpg|pdf)$`).test(r.data)) return NO_ENCONTRADO
@@ -218,7 +221,7 @@ export async function enlaceRecurso(ruta: unknown): Promise<ResultadoCert> {
 // ---------------------------------------------------------------------------
 
 export async function guardarCertificacionCurso(cursoId: unknown, datos: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const c = uuid.safeParse(cursoId)
   if (!c.success) return NO_ENCONTRADO
@@ -279,13 +282,25 @@ async function generarYAdjuntar(supabase: Awaited<ReturnType<typeof createClient
 }
 
 export async function emitirCertificado(datos: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const v = z.object({ matriculaId: uuid, plantillaId: uuid.nullable(), firmanteId: uuid.nullable(), confirmado: z.literal(true) }).safeParse(datos)
   if (!v.success) return { ok: false, gravedad: "error", mensaje: "Confirma la emisión para continuar." }
   const supabase = await createClient()
-  const { data: m } = await supabase.from("matriculas").select("id").eq("id", v.data.matriculaId).eq("institucion_id", institucionId).maybeSingle()
+  const { data: m } = await supabase.from("matriculas").select("id, grupo_id").eq("id", v.data.matriculaId).eq("institucion_id", institucionId).maybeSingle()
   if (!m) return NO_ENCONTRADO
+  // Firma: si el curso exige un firmante, no se emite sin él ni con uno sin firma cargada.
+  const { data: g } = await supabase.from("grupos").select("curso_id").eq("id", m.grupo_id as string).eq("institucion_id", institucionId).maybeSingle()
+  const [{ data: conf }, { data: firmantes }] = await Promise.all([
+    g ? supabase.from("certificacion_curso").select("firmante_id").eq("curso_id", g.curso_id as string).eq("institucion_id", institucionId).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("firmantes_certificado").select("id, nombre, activo, firma_path").eq("institucion_id", institucionId),
+  ])
+  const problemaFirma = problemaFirmante({
+    requerido: ((conf as { firmante_id?: string | null } | null)?.firmante_id) ?? null,
+    elegido: v.data.firmanteId,
+    firmantes: (firmantes ?? []) as FirmanteBasico[],
+  })
+  if (problemaFirma) return { ok: false, gravedad: "advertencia", mensaje: problemaFirma }
   const { data, error } = await supabase.rpc("emitir_certificado", { p_matricula: v.data.matriculaId, p_plantilla: v.data.plantillaId, p_firmante: v.data.firmanteId })
   if (error) return fallo(error)
   const fila = (Array.isArray(data) ? data[0] : data) as { certificado_id: string; codigo: string } | null
@@ -293,11 +308,12 @@ export async function emitirCertificado(datos: unknown): Promise<ResultadoCert> 
   const problema = await generarYAdjuntar(supabase, institucionId, fila.certificado_id)
   revalidar()
   revalidatePath(`/admin/matriculas/${v.data.matriculaId}`)
+  despacharCorreos() // «certificado disponible» (se encola al adjuntar el PDF)
   return { ok: true, id: fila.certificado_id, codigo: fila.codigo, aviso: problema ? `${problema} El certificado quedó emitido; usa «Generar PDF» para reintentar.` : undefined }
 }
 
 export async function generarPdf(certificadoId: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(certificadoId)
   if (!id.success) return NO_ENCONTRADO
@@ -305,11 +321,12 @@ export async function generarPdf(certificadoId: unknown): Promise<ResultadoCert>
   const problema = await generarYAdjuntar(supabase, institucionId, id.data)
   if (problema) return { ok: false, gravedad: "error", mensaje: problema }
   revalidar()
+  despacharCorreos()
   return { ok: true, id: id.data }
 }
 
 export async function enlaceCertificado(certificadoId: unknown): Promise<ResultadoCert> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(certificadoId)
   if (!id.success) return NO_ENCONTRADO
@@ -327,9 +344,19 @@ export async function enlaceCertificado(certificadoId: unknown): Promise<Resulta
 // Pagos de certificados (revisión manual, misma salvaguarda que los pagos)
 // ---------------------------------------------------------------------------
 
+/**
+ * El pago de un certificado es un PAGO: lo revisa quien tenga el módulo Pagos
+ * (como cualquier comprobante) o el módulo Certificados (como hasta ahora). No
+ * amplía nada: la función revisar_pago_certificado vuelve a exigir en la base
+ * de datos que sea administrador activo de esa institución.
+ */
+async function institucionRevisoraPagoCertificado(): Promise<string | null> {
+  return (await institucionDelAdmin("pagos")) ?? (await institucionDelAdmin("certificados"))
+}
+
 export async function revisarPagoCertificado(datos: unknown): Promise<ResultadoCert> {
   if (!REVISION_PAGOS_HABILITADA) return { ok: false, gravedad: "advertencia", mensaje: MOTIVO_REVISION_DESHABILITADA }
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionRevisoraPagoCertificado()
   if (!institucionId) return SIN_PERMISO
   const v = z
     .object({ pagoId: uuid, aprobar: z.boolean(), observacion: z.string().trim().max(500), confirmado: z.literal(true) })
@@ -344,11 +371,13 @@ export async function revisarPagoCertificado(datos: unknown): Promise<ResultadoC
   const { error } = await supabase.rpc("revisar_pago_certificado", { p_pago: v.data.pagoId, p_aprobar: v.data.aprobar, p_observacion: v.data.observacion || null })
   if (error) return fallo(error)
   revalidar()
+  revalidatePath("/admin/pagos", "layout")
+  revalidatePath("/admin")
   return { ok: true, id: v.data.pagoId }
 }
 
 export async function enlaceComprobanteCertificado(pagoId: unknown): Promise<{ ok: true; url: string; tipo: "imagen" | "pdf" | "archivo"; vigenciaSegundos: number } | Fallo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionRevisoraPagoCertificado()
   if (!institucionId) return SIN_PERMISO
   const id = uuid.safeParse(pagoId)
   if (!id.success) return NO_ENCONTRADO

@@ -54,6 +54,7 @@ export default async function RegistroNotasPage({ params }: PageProps<"/docente/
         editable={registro.editable}
         motivoNoEditable={registro.motivoNoEditable}
         publicacionActiva={g.publicacionActiva}
+        publicacionPorNota={registro.publicacionPorNota}
       />
     </>
   )

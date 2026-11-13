@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   title: "Curso · Academix",
 }
 
-const formatoFechaHora = new Intl.DateTimeFormat("es-PE", { dateStyle: "long", timeStyle: "short" })
+const formatoFechaHora = new Intl.DateTimeFormat("es-PE", { dateStyle: "long", timeStyle: "short" , timeZone: "America/Lima" })
 
 export default async function CursoPage({ params }: PageProps<"/admin/cursos/[id]">) {
   const sesion = await requerirPanel("admin")

@@ -35,7 +35,7 @@ const SIN_PERMISO: Fallo = { ok: false, gravedad: "error", mensaje: "Tu sesión 
 
 /** Admin con rol activo y perfil activo, de una institución activa. */
 async function institucionActivaDelAdmin(): Promise<{ ok: true; institucionId: string } | Fallo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return SIN_PERMISO
   const supabase = await createClient()
   const { data, error } = await supabase.from("instituciones").select("activo").eq("id", institucionId).maybeSingle()

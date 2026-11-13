@@ -1,3 +1,4 @@
+import type { DisponibilidadCurso } from "@/lib/oferta/disponibilidad"
 import { getCategoryVisual } from "@/academix/lib/visuals"
 import {
   ALL,
@@ -26,7 +27,7 @@ const formatoPrecio = new Intl.NumberFormat("es-PE", { style: "currency", curren
  * generada de la categoría. La categoría se identifica por su id,
  * el mismo valor que usa el filtro ?categoria= del catálogo.
  */
-export function aCursoAcademix(c: OfertaCurso): CourseSummary {
+export function aCursoAcademix(c: OfertaCurso, d?: DisponibilidadCurso | null): CourseSummary {
   return {
     id: c.id,
     title: c.nombre,
@@ -42,7 +43,17 @@ export function aCursoAcademix(c: OfertaCurso): CourseSummary {
     coverUrl: c.portada_url ?? null,
     price: Number(c.precio),
     priceLabel: formatoPrecio.format(Number(c.precio)),
+    availability: d ? etiquetaDisponibilidad(d) : null,
   }
+}
+
+const fechaInicioGrupo = new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "short", timeZone: "UTC" })
+
+/** Disponibilidad → etiqueta de la tarjeta («Inscripciones abiertas · inicia 2 mar»). */
+export function etiquetaDisponibilidad(d: DisponibilidadCurso): NonNullable<CourseSummary["availability"]> {
+  const tone = d.estado === "abiertas" ? "open" : d.estado === "proximamente" ? "soon" : d.estado === "en_curso" ? "running" : "closed"
+  const inicio = d.grupo && (d.estado === "abiertas" || d.estado === "proximamente") ? `Inicia el ${fechaInicioGrupo.format(new Date(`${d.grupo.fecha_inicio}T00:00:00Z`))}` : null
+  return { label: d.etiqueta, tone, detail: inicio }
 }
 
 /** Filtros del kit (valor 'all' = sin filtro) → filtros del catálogo (cadena vacía = sin filtro). */

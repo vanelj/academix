@@ -30,7 +30,7 @@ type Fila = {
 
 export async function procesarCorreos(opciones: { lotes?: number; recordatorios?: boolean } = {}): Promise<ResumenProceso> {
   const config = configuracionCorreo()
-  if (!config) return { estado: "sin_configurar", motivo: "Faltan RESEND_API_KEY o CORREO_REMITENTE." }
+  if (!config) return { estado: "sin_configurar", motivo: "Faltan RESEND_API_KEY o RESEND_FROM_EMAIL (o el remitente no es válido)." }
   const admin = clienteAdministrativo()
   if (!admin) return { estado: "sin_configurar", motivo: "Falta SUPABASE_SECRET_KEY." }
 

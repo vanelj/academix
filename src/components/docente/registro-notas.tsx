@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { guardarNotas } from "@/lib/docente/acciones"
 import type { FilaRegistro } from "@/lib/docente/datos"
 import { claveNota, leerNota, textoNota } from "@/lib/docente/notas"
@@ -45,6 +46,7 @@ export function RegistroNotas({
   editable,
   motivoNoEditable,
   publicacionActiva = false,
+  publicacionPorNota = false,
 }: {
   grupoId: string
   evaluaciones: Evaluacion[]
@@ -53,6 +55,8 @@ export function RegistroNotas({
   editable: boolean
   motivoNoEditable: string | null
   publicacionActiva?: boolean
+  /** revision_funcional_v5 aplicada: «Guardar y publicar» por nota. */
+  publicacionPorNota?: boolean
 }) {
   const id = useId()
   const router = useRouter()
@@ -66,7 +70,14 @@ export function RegistroNotas({
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [guardando, setGuardando] = useState(false)
   const [texto, setTexto] = useState("")
+  // Corrección o anulación de notas que el estudiante YA ve: se pide el motivo (queda en el historial).
+  const [pidiendoMotivo, setPidiendoMotivo] = useState<{ publicar: boolean } | null>(null)
+  const [motivo, setMotivo] = useState("")
   const bloqueo = useRef(false)
+  const visible = (k: string) => {
+    const [m, e] = k.split(":")
+    return Boolean(filas.find((f) => f.matriculaId === m)?.notas[e]?.publicada)
+  }
 
   const cambiadas = Object.keys(valores).filter((k) => valores[k].trim() !== (guardado[k] ?? "").trim())
   const invalidas = cambiadas.filter((k) => !leerNota(valores[k]).ok)
@@ -79,20 +90,31 @@ export function RegistroNotas({
     document.getElementById(`${id}-${fila}-${col}`)?.focus()
   }
 
-  async function guardar() {
+  /** Notas ya visibles para el estudiante que se van a corregir o anular. */
+  const correccionesVisibles = cambiadas.filter((k) => (guardado[k] ?? "").trim() !== "" && visible(k))
+
+  async function guardar(publicar = true, motivoTexto = "") {
     if (bloqueo.current || cambiadas.length === 0) return
     if (invalidas.length) {
       notificar.advertencia("Revisa las notas marcadas", { descripcion: "Usa números de 0 a 20 con hasta 2 decimales, o deja la casilla vacía." })
+      return
+    }
+    if (publicacionPorNota && correccionesVisibles.length > 0 && motivoTexto.trim().length < 5) {
+      setPidiendoMotivo({ publicar })
       return
     }
     bloqueo.current = true
     setGuardando(true)
     const enviados = Object.fromEntries(cambiadas.map((k) => [k, valores[k]]))
     try {
-      const r = await guardarNotas(grupoId, cambiadas.map((k) => {
-        const [matriculaId, evaluacionId] = k.split(":")
-        return { matriculaId, evaluacionId, nota: valores[k] }
-      }))
+      const r = await guardarNotas(
+        grupoId,
+        cambiadas.map((k) => {
+          const [matriculaId, evaluacionId] = k.split(":")
+          return { matriculaId, evaluacionId, nota: valores[k] }
+        }),
+        { publicar, motivo: motivoTexto.trim() }
+      )
       if (!r.ok) {
         notificar.error("No se guardaron las notas", { descripcion: r.mensaje })
         return
@@ -111,7 +133,15 @@ export function RegistroNotas({
         return nuevo
       })
       setErrores(fallidas)
-      if (r.errores.length === 0) notificar.exito("Notas guardadas", { descripcion: `${r.guardadas} ${r.guardadas === 1 ? "cambio guardado" : "cambios guardados"}.` })
+      setPidiendoMotivo(null)
+      setMotivo("")
+      if (r.errores.length === 0) {
+        notificar.exito(r.publicacionDirecta && publicar ? "Notas guardadas y publicadas" : "Notas guardadas", {
+          descripcion: r.publicacionDirecta && publicar
+            ? `${r.guardadas} ${r.guardadas === 1 ? "cambio" : "cambios"}: tus estudiantes ya ven sus notas.`
+            : `${r.guardadas} ${r.guardadas === 1 ? "cambio guardado" : "cambios guardados"}${publicacionActiva ? " como borrador (el estudiante aún no las ve)" : ""}.`,
+        })
+      }
       else notificar.advertencia(`Se guardaron ${r.guardadas} cambios; ${r.errores.length} con problemas`, { descripcion: "Las casillas con problemas están marcadas en rojo." })
       router.refresh()
     } catch {
@@ -150,9 +180,15 @@ export function RegistroNotas({
               <Undo2 aria-hidden />
               Deshacer
             </Button>
-            <Button size="sm" disabled={cambiadas.length === 0 || guardando} onClick={guardar}>
-              {guardando ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
-              {guardando ? "Guardando…" : "Guardar notas"}
+            {publicacionPorNota && (
+              <Button variant="outline" size="sm" disabled={cambiadas.length === 0 || guardando} onClick={() => guardar(false)} title="El estudiante no verá estas notas hasta publicarlas">
+                <Save aria-hidden />
+                Guardar como borrador
+              </Button>
+            )}
+            <Button size="sm" disabled={cambiadas.length === 0 || guardando} onClick={() => guardar(true)}>
+              {guardando ? <Loader2 className="animate-spin" aria-hidden /> : publicacionPorNota ? <Send aria-hidden /> : <Save aria-hidden />}
+              {guardando ? "Guardando…" : publicacionPorNota ? "Guardar y publicar" : "Guardar notas"}
             </Button>
           </div>
         )}
@@ -220,7 +256,8 @@ export function RegistroNotas({
                           inputMode="decimal"
                           autoComplete="off"
                           disabled={!editable || cerrada || guardando}
-                          aria-label={`Nota de ${f.nombre} en ${e.nombre}`}
+                          aria-label={`Nota de ${f.nombre} en ${e.nombre}${publicacionActiva && f.notas[e.id]?.publicada ? " (publicada)" : ""}`}
+                          title={publicacionActiva && f.notas[e.id] ? (f.notas[e.id].publicada ? "Publicada: el estudiante la ve" : "Borrador: el estudiante aún no la ve") : undefined}
                           aria-invalid={!!error || undefined}
                           aria-describedby={error ? `${id}-${filaIdx}-${col}-e` : undefined}
                           placeholder="—"
@@ -265,8 +302,27 @@ export function RegistroNotas({
         </table>
       </div>
       {visibles.length === 0 && <p className="text-center text-sm text-muted-foreground">Ningún estudiante coincide con la búsqueda.</p>}
+      <Dialog open={pidiendoMotivo !== null} onOpenChange={(a) => { if (!a && !guardando) setPidiendoMotivo(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Motivo de la corrección</DialogTitle>
+            <DialogDescription>
+              {correccionesVisibles.length === 1 ? "Vas a cambiar o anular 1 nota" : `Vas a cambiar o anular ${correccionesVisibles.length} notas`} que el estudiante ya ve. El motivo queda en el historial académico (no se borra nada del registro).
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} rows={3} placeholder="Ej.: error de digitación; se revisó el examen a pedido del estudiante." autoFocus />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPidiendoMotivo(null)} disabled={guardando}>Cancelar</Button>
+            <Button onClick={() => pidiendoMotivo && guardar(pidiendoMotivo.publicar, motivo)} disabled={guardando || motivo.trim().length < 5}>
+              {guardando && <Loader2 className="animate-spin" aria-hidden />}
+              Registrar corrección
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <p className="text-xs text-muted-foreground">
-        {publicacionActiva && "Guardar no publica: tus estudiantes solo ven las notas de las evaluaciones publicadas. "}
+        {publicacionActiva && !publicacionPorNota && "Guardar no publica: tus estudiantes solo ven las notas de las evaluaciones publicadas. "}
+        {publicacionPorNota && "«Guardar y publicar» muestra cada nota a su estudiante al instante (solo las que guardas, nunca borradores de otros). Para corregir o anular una nota que el estudiante ya ve se pide el motivo; el cambio queda registrado. "}
         * Promedio parcial: solo con las evaluaciones que ya tienen nota. «Aprobaría» o «Desaprobaría» es una vista previa;
         el resultado oficial lo registra la institución en «Evaluaciones» cuando el grupo está en curso o cerrado.
       </p>

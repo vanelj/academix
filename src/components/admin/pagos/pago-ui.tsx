@@ -45,9 +45,10 @@ export function EstadoCuotaBadge({ cuota }: { cuota: Pick<CuotaAdmin, "estado" |
 }
 
 /** Pestañas del módulo «Pagos» (una sola entrada de menú). Las cuotas solo existen en cursos anteriores al pago completo. */
-export function PagosTabs({ actual }: { actual: "pagos" | "cuotas" | "medios" | "verificacion" }) {
+export function PagosTabs({ actual, pendientesCertificado }: { actual: "pagos" | "certificados" | "cuotas" | "medios" | "verificacion"; pendientesCertificado?: number }) {
   const pestañas = [
     { id: "pagos", href: "/admin/pagos", texto: "Comprobantes" },
+    { id: "certificados", href: "/admin/pagos/certificados", texto: "Certificados" },
     { id: "medios", href: "/admin/pagos/medios", texto: "Medios de cobro" },
     { id: "cuotas", href: "/admin/pagos/cuotas", texto: "Cuotas anteriores" },
     { id: "verificacion", href: "/admin/pagos/verificacion", texto: "Verificación" },
@@ -65,6 +66,11 @@ export function PagosTabs({ actual }: { actual: "pagos" | "cuotas" | "medios" | 
           )}
         >
           {p.texto}
+          {p.id === "certificados" && pendientesCertificado ? (
+            <span className="ml-1.5 rounded-full bg-warning/15 px-1.5 text-xs font-semibold text-warning" aria-label={`${pendientesCertificado} por revisar`}>
+              {pendientesCertificado}
+            </span>
+          ) : null}
         </Link>
       ))}
     </nav>

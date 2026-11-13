@@ -29,6 +29,20 @@ export const TIPOS_MATERIAL = {
 
 export type TipoMaterial = keyof typeof TIPOS_MATERIAL
 
+/**
+ * Tipos que el navegador muestra por sí mismo (PDF, imágenes y texto). Word,
+ * Excel y PowerPoint NO: abrirlos «en una pestaña» deja una vista vacía o una
+ * descarga silenciosa, así que se ofrecen como descarga con su nombre original.
+ */
+const VISUALIZABLES = new Set<string>(["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain"])
+export const visualizableEnNavegador = (mime: string | null | undefined) => Boolean(mime && VISUALIZABLES.has(mime))
+
+/** Cómo se abre un material: enlace externo, vista en pestaña nueva o descarga. */
+export function modoApertura(m: { tipo: "archivo" | "enlace"; archivo_tipo: string | null }, pideDescarga = false): "enlace" | "vista" | "descarga" {
+  if (m.tipo === "enlace") return "enlace"
+  return pideDescarga || !visualizableEnNavegador(m.archivo_tipo) ? "descarga" : "vista"
+}
+
 export const ACEPTA_MATERIAL = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp"
 
 const POR_EXTENSION: Record<string, TipoMaterial> = {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { obtenerContexto } from "@/lib/auth/contexto"
+import { institucionDelAdmin } from "@/lib/auth/contexto"
 import {
   BUCKET_LOGOS,
   rutaLogoDeInstitucion,
@@ -24,16 +24,8 @@ const MENSAJE_SIN_PERMISO =
  * desde el perfil (nunca del navegador) y exige perfil activo y rol admin activo.
  */
 async function institucionAutorizada(): Promise<string | null> {
-  const ctx = await obtenerContexto()
-  if (
-    ctx.estado !== "con_perfil" ||
-    !ctx.perfil.activo ||
-    ctx.rolActivo !== "admin" ||
-    !ctx.perfil.institucionId
-  ) {
-    return null
-  }
-  return ctx.perfil.institucionId
+  // Exige además el permiso «Configuración institucional» del equipo administrativo.
+  return institucionDelAdmin("institucion")
 }
 
 export type ResultadoInstitucion =

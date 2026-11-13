@@ -14,7 +14,11 @@ import { calcular, resultadoSegun, type Calculo } from "@/lib/evaluaciones/calcu
  */
 
 export type EvaluacionAlumno = { id: string; nombre: string; peso: number; fecha: string | null; publicada_en?: string | null }
-export type NotaAlumno = { evaluacion_id: string; nota: number }
+/**
+ * `visible`: la fila ya llegó filtrada por RLS para el estudiante (nota publicada
+ * por evaluación o publicada directamente al guardarla).
+ */
+export type NotaAlumno = { evaluacion_id: string; nota: number; visible?: boolean }
 
 export type EstadoEvaluacionAlumno = "calificado" | "pendiente"
 
@@ -35,7 +39,7 @@ export function resumenNotasAlumno(
   opciones: { publicacionActiva: boolean; notaAprobatoria?: number | null }
 ): ResumenNotas {
   const visibles = opciones.publicacionActiva ? new Set(evaluaciones.filter((e) => e.publicada_en).map((e) => e.id)) : new Set(evaluaciones.map((e) => e.id))
-  const notasVisibles = notas.filter((n) => visibles.has(n.evaluacion_id) && Number.isFinite(n.nota))
+  const notasVisibles = notas.filter((n) => (visibles.has(n.evaluacion_id) || n.visible === true) && Number.isFinite(n.nota))
   const porEval = new Map(notasVisibles.map((n) => [n.evaluacion_id, n.nota]))
   const ordenadas = [...evaluaciones].sort((a, b) => (a.fecha ?? "9999").localeCompare(b.fecha ?? "9999") || a.nombre.localeCompare(b.nombre, "es"))
   const tarjetas = ordenadas.map((e) => {

@@ -138,3 +138,42 @@ Ninguna se ha ejecutado. Son independientes entre sí; aplicarlas en este orden:
 - **Aula o sede:** `horarios.ubicacion` (opcional). La modalidad de cada sesión se deduce (enlace = virtual, ubicación = presencial); `cursos.modalidad` no cambia.
 - **`mis_cursos_detalle()`:** modalidad, nota aprobatoria y portada de las matrículas propias del estudiante (solo lectura).
 - **Avisos:** si `notificaciones_v5` está aplicada, publicar avisa una vez a cada estudiante con nota en esa evaluación y, cuando todo el grupo está publicado y completo, avisa al administrador «Resultados listos para revisar».
+
+## Estado y siguiente paso (12-11-2026, tarde)
+
+El usuario confirma aplicadas: `solicitudes_estado_grupo_v5`, `notificaciones_v5`, `qr_medios_cobro_v5` y `aula_academica_v5` (un sondeo de solo lectura confirma que existen `materiales_curso`, `notificaciones`, `publicar_evaluacion` y `mis_cursos_detalle`). **No volver a ejecutarlas.**
+
+| Paso | Archivo | Tipo | Sin aplicarla |
+|---|---|---|---|
+| 17 | `docs/migraciones/administracion_v5.sql` | Tabla del equipo + políticas restrictivas de escritura + RPC + columna en instituciones | Todos los administradores conservan acceso completo; «Equipo administrativo» muestra que falta la actualización; el docente no puede editar enlaces (solo el administrador). La programación automática y los calendarios funcionan sin ella. |
+
+**administracion_v5 (paso 17).** Diagnóstico previo: `docs/diagnostico/verificacion_previa_administracion_v5.sql`.
+- Todos los administradores actuales pasan a **principales** con acceso completo: nadie pierde acceso.
+- `administradores_institucion` solo se modifica con las RPC `gestionar_administrador`, `cambiar_acceso_administrador` y `nombrar_principal` (solo un principal, nunca sobre sí mismo, nunca sin principal activo).
+- Políticas **restrictivas de escritura** por módulo en las tablas de cursos, grupos, matrículas, pagos, evaluaciones, certificados y políticas; asignar el rol admin solo lo hace un principal.
+- Límite: las RPC SECURITY DEFINER existentes (pagos, matrícula, resultados, certificados) no se modifican; su permiso por módulo lo comprueba la app en el servidor. Las lecturas siguen abiertas a todo administrador de la institución.
+- `instituciones.docentes_gestionan_enlaces` (falso por defecto) y la RPC `actualizar_enlace_clase` para que el docente edite el enlace de SUS grupos si la institución lo autoriza.
+
+## Correos académicos y eliminación segura (12-11-2026, noche)
+
+`correos_transaccionales_v5` **ya está aplicada** (un sondeo de solo lectura confirma `correos_salientes`, `correos_tomar` y `encolar_recordatorios_correo`). `administracion_v5` **no** está aplicada.
+
+| Paso | Archivo | Tipo | Sin aplicarla |
+|---|---|---|---|
+| 18 | `docs/migraciones/correos_academicos_v5.sql` | 2 disparadores + `correo_contexto` con horario | No se envían «cambio de horario» ni «resultado final»; el resto de correos funciona. |
+| 19 | `docs/migraciones/eliminacion_segura_v5.sql` | Funciones de diagnóstico y borrado transaccional | La ventana de eliminación funciona (diagnóstico calculado por la app), pero solo se borran cursos sin grupos ni plan de cuotas y grupos sin registros, como antes. |
+
+Diagnóstico previo (ambas): `docs/diagnostico/verificacion_previa_eliminacion_segura_v5.sql`. Son independientes entre sí y de `administracion_v5`.
+
+## Revisión funcional previa al despliegue (13-11-2026)
+
+| Paso | Archivo | Tipo | Sin aplicarla |
+|---|---|---|---|
+| 20 | `docs/migraciones/revision_funcional_v5.sql` | Avisos de pago de certificado, cruces multiinstitución, oferta con grupos en curso, hora académica, notas auditadas, tareas y entregas | La app funciona como antes: cruces solo dentro de la institución; el catálogo no distingue «En curso»; la hora académica se escribe a mano; las notas se guardan como borrador y se publican por evaluación; la sección «Tareas» avisa que falta la actualización. |
+
+Diagnóstico previo de solo lectura: `docs/diagnostico/verificacion_previa_revision_funcional_v5.sql`.
+
+- Requiere `aula_academica_v5` y `certificados_v5` (aplicadas). `notificaciones_v5` es opcional (avisos).
+- **Notas:** desde que se aplica, solo se escriben con `guardar_calificaciones` y `calificar_entrega`. Se retira el INSERT/UPDATE/DELETE directo de `authenticated` para que toda corrección y anulación quede en `historial_calificaciones` con su motivo. Las notas existentes no cambian y conservan su visibilidad.
+- **Tareas:** las escrituras se hacen solo con funciones. El bucket `entregas-tareas` es privado (20 MB) y no tiene políticas de UPDATE ni DELETE.
+- **Eliminación de cursos y grupos:** no necesita cambios en `eliminacion_segura_v5`. El servidor le pasa el nombre o código actual, leído con la sesión del administrador. Las dos confirmaciones de la interfaz no son la protección: la función vuelve a comprobar permisos, institución e historial.

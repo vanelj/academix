@@ -50,7 +50,7 @@ const NO_VERIFICADO: ResultadoConflictos = {
 }
 
 export async function comprobarConflictos(cursoId: unknown, esperado: unknown): Promise<ResultadoConflictos> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return { ok: false, mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
   const id = z.uuid().safeParse(cursoId)
   const e = esperadoSchema.safeParse(esperado)

@@ -7,10 +7,13 @@ import { AsignarDocenteGrupo } from "@/components/admin/asignacion-docente"
 import { GrupoAcciones } from "@/components/admin/grupos/grupo-acciones"
 import { DESCRIPCION_ESTADO_GRUPO, DisponibilidadBadge, EstadoGrupoBadge, fechaCorta } from "@/components/admin/grupos/grupo-ui"
 import { HorariosGrupo } from "@/components/admin/grupos/horarios-grupo"
+import { ProgramacionGrupo } from "@/components/admin/grupos/programacion-grupo"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { requerirPanel } from "@/lib/auth/contexto"
 import { obtenerGrupo, opcionesDocentes, type OpcionDocente } from "@/lib/grupos/datos"
+import { leerMinutosHoraAcademica } from "@/lib/institucion/hora-academica-datos"
+import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { idSchema } from "@/lib/validations/grupo"
 
@@ -33,6 +36,15 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
   } catch {
     docentes = []
   }
+  // Hora académica de la institución y carga declarada del curso (condiciones de certificación).
+  const supabase = await createClient()
+  const [minutosHora, declarada] = await Promise.all([
+    leerMinutosHoraAcademica(institucionId),
+    grupo.curso
+      ? supabase.from("certificacion_curso").select("horas_academicas").eq("curso_id", grupo.curso.id).eq("institucion_id", institucionId).maybeSingle()
+          .then(({ data }) => ((data as { horas_academicas?: number | null } | null)?.horas_academicas ?? null), () => null)
+      : Promise.resolve(null),
+  ])
   const asignacionCerrada = grupo.estado === "cerrado" || grupo.estado === "cancelado"
 
   const d = grupo.dependencias
@@ -87,7 +99,7 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
                   )}
                   {!asignacionCerrada && (
                     <span className="mt-1.5 block">
-                      <AsignarDocenteGrupo grupoId={grupo.id} actualId={grupo.docente?.id ?? null} docentes={docentes} />
+                      <AsignarDocenteGrupo grupoId={grupo.id} actualId={grupo.docente?.id ?? null} docentes={docentes} fechaInicio={grupo.fecha_inicio} fechaFin={grupo.fecha_fin} />
                     </span>
                   )}
                 </Dato>
@@ -105,7 +117,17 @@ export default async function GrupoPage({ params }: PageProps<"/admin/grupos/[id
             </CardContent>
           </Card>
 
-          <HorariosGrupo grupoId={grupo.id} horarios={grupo.horarios} ubicacionDisponible={grupo.ubicacionDisponible} />
+          <div id="programacion" className="scroll-mt-20" />
+          <HorariosGrupo grupoId={grupo.id} horarios={grupo.horarios} docente={grupo.docente ? { id: grupo.docente.id, fechaInicio: grupo.fecha_inicio, fechaFin: grupo.fecha_fin } : null} />
+          <ProgramacionGrupo
+            grupoId={grupo.id}
+            franjas={grupo.horarios.map((h) => ({ dia_semana: h.dia_semana, hora_inicio: h.hora_inicio, hora_fin: h.hora_fin }))}
+            fechaInicio={grupo.fecha_inicio}
+            fechaFin={grupo.fecha_fin}
+            estado={grupo.estado}
+            minutosHoraAcademica={typeof minutosHora === "number" ? minutosHora : null}
+            horasDeclaradas={declarada}
+          />
         </div>
 
         <aside className="space-y-4">

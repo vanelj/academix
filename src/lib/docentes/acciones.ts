@@ -1,10 +1,10 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { headers } from "next/headers"
 
-import { MARCA_ACTIVACION, origenPublico, RUTA_ACTIVACION } from "@/lib/auth/activacion"
-import { institucionDelAdmin } from "@/lib/auth/contexto"
+import { datosInvitacion, MARCA_ACTIVACION } from "@/lib/auth/activacion"
+import { opcionesInvitacion } from "@/lib/auth/invitacion"
+import { institucionDelAdmin, obtenerContexto } from "@/lib/auth/contexto"
 import { esErrorDeRed } from "@/lib/registro/errores"
 import { clienteAdministrativo } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -19,7 +19,7 @@ import {
  * Gestión de docentes de la institución del administrador.
  *
  * Autorización en dos capas:
- * 1. institucionDelAdmin(): sesión válida, perfil activo y rol admin ACTIVO; la
+ * 1. institucionDelAdmin("docentes"): sesión válida, perfil activo y rol admin ACTIVO; la
  *    institución sale del perfil en el servidor, nunca del navegador.
  * 2. Cada operación ordinaria (editar perfil, asignar o habilitar el rol) usa la
  *    sesión del administrador, así que RLS la vuelve a comprobar en la BD.
@@ -72,7 +72,7 @@ const DNI_DUPLICADO: Fallo = {
 // ---------------------------------------------------------------------------
 
 export async function registrarDocente(datos: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
 
   const validacion = nuevoDocenteSchema.safeParse(datos)
@@ -91,7 +91,8 @@ export async function registrarDocente(datos: unknown): Promise<ResultadoDocente
   const { data: creado, error: crearError } = await admin.auth.admin.createUser({
     email: correo,
     email_confirm: false,
-    user_metadata: { nombres: perfil.nombres, apellidos: perfil.apellidos },
+    // Datos del correo de invitación (rol e institución validados en el servidor).
+    user_metadata: { nombres: perfil.nombres, apellidos: perfil.apellidos, ...datosInvitacion("docente", await nombreInstitucion()) },
     // Sin contraseña hasta activar: la app no le abre ningún panel antes.
     app_metadata: { [MARCA_ACTIVACION]: true },
   })
@@ -141,26 +142,12 @@ export async function registrarDocente(datos: unknown): Promise<ResultadoDocente
   return { ok: true, id: userId }
 }
 
-/**
- * El enlace de la invitación vuelve a /auth/activar del sitio (NEXT_PUBLIC_SITE_URL
- * o el host de esta petición). Sin origen válido, Supabase usa su Site URL.
- * Supabase solo acepta el destino si está en «Redirect URLs».
- */
-async function opcionesInvitacion(): Promise<{ redirectTo?: string }> {
-  const h = await headers()
-  const origen = origenPublico(process.env.NEXT_PUBLIC_SITE_URL, {
-    host: h.get("x-forwarded-host") ?? h.get("host"),
-    proto: h.get("x-forwarded-proto"),
-  })
-  return origen ? { redirectTo: `${origen}${RUTA_ACTIVACION}` } : {}
-}
-
 // ---------------------------------------------------------------------------
 // Asignar el rol docente a una persona que ya es de la institución
 // ---------------------------------------------------------------------------
 
 export async function asignarRolDocente(perfilId: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const id = idPerfilSchema.safeParse(perfilId)
   if (!id.success) return DATOS_INVALIDOS
@@ -200,7 +187,7 @@ export async function asignarRolDocente(perfilId: unknown): Promise<ResultadoDoc
 // ---------------------------------------------------------------------------
 
 export async function editarDocente(perfilId: unknown, datos: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const id = idPerfilSchema.safeParse(perfilId)
   const validacion = datosDocenteSchema.safeParse(datos)
@@ -234,7 +221,7 @@ export async function editarDocente(perfilId: unknown, datos: unknown): Promise<
  * la persona no puede trabajar como docente; sus grupos conservan la asignación.
  */
 export async function cambiarEstadoDocente(perfilId: unknown, activo: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const id = idPerfilSchema.safeParse(perfilId)
   if (!id.success || typeof activo !== "boolean") return DATOS_INVALIDOS
@@ -259,7 +246,7 @@ export async function cambiarEstadoDocente(perfilId: unknown, activo: unknown): 
 // ---------------------------------------------------------------------------
 
 export async function reenviarInvitacion(perfilId: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const id = idPerfilSchema.safeParse(perfilId)
   if (!id.success) return DATOS_INVALIDOS
@@ -284,13 +271,13 @@ export async function reenviarInvitacion(perfilId: unknown): Promise<ResultadoDo
     }
   }
 
-  // La cuenta aún no se activó: queda (o sigue) marcada como pendiente.
-  if (data.user.app_metadata?.[MARCA_ACTIVACION] !== true) {
-    const { error: marcaError } = await admin.auth.admin.updateUserById(id.data, {
-      app_metadata: { [MARCA_ACTIVACION]: true },
-    })
-    if (marcaError) return falloAuth(marcaError)
-  }
+  // La cuenta aún no se activó: queda (o sigue) marcada como pendiente, y el
+  // correo vuelve a mostrar la institución y el rol actuales (datos del servidor).
+  const { error: marcaError } = await admin.auth.admin.updateUserById(id.data, {
+    app_metadata: { ...(data.user.app_metadata ?? {}), [MARCA_ACTIVACION]: true },
+    user_metadata: { ...(data.user.user_metadata ?? {}), ...datosInvitacion("docente", await nombreInstitucion()) },
+  })
+  if (marcaError) return falloAuth(marcaError)
   const { error: invitarError } = await admin.auth.admin.inviteUserByEmail(data.user.email, await opcionesInvitacion())
   if (invitarError) return falloAuth(invitarError)
   revalidarDocentes(id.data)
@@ -303,7 +290,7 @@ export async function reenviarInvitacion(perfilId: unknown): Promise<ResultadoDo
  * de Auth elimina en cascada su perfil y su rol; no afecta a datos académicos.
  */
 export async function cancelarInvitacion(perfilId: unknown): Promise<ResultadoDocente> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const id = idPerfilSchema.safeParse(perfilId)
   if (!id.success) return DATOS_INVALIDOS
@@ -366,6 +353,12 @@ async function revertirCuenta(userId: string) {
   // Borrar la cuenta de Auth elimina en cascada el perfil y sus roles recién creados.
   const { error } = await clienteAdministrativo()!.auth.admin.deleteUser(userId)
   if (error) console.error("[docentes] revertir cuenta", error.code, error.message)
+}
+
+/** Nombre de la institución del administrador (leído de la BD con su sesión). */
+async function nombreInstitucion(): Promise<string | null> {
+  const ctx = await obtenerContexto()
+  return ctx.estado === "con_perfil" ? ctx.institucion : null
 }
 
 function falloAuth(error: { code?: string; status?: number; message: string } | null): Fallo {

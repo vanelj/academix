@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Award, CircleAlert, CircleCheck, Loader2 } from "lucide-react"
 
@@ -19,6 +20,7 @@ import {
 import { emitirCertificado } from "@/lib/certificados/acciones"
 import { ETIQUETA_MODALIDAD } from "@/lib/certificados/config"
 import type { Elegible, Firmante, PlantillaCertificado } from "@/lib/certificados/datos"
+import { problemaFirmante } from "@/lib/certificados/firma"
 import { notificar } from "@/lib/notificaciones"
 
 /** Matrículas aprobadas sin certificado: requisitos verificables y emisión autorizada por el administrador. */
@@ -31,6 +33,7 @@ export function ElegiblesPanel({ elegibles, plantillas, firmantes }: { elegibles
   const [enviando, setEnviando] = useState(false)
   const activas = plantillas.filter((p) => p.activo)
   const firmantesActivos = firmantes.filter((f) => f.activo)
+  const problemaElegido = emitir ? problemaFirmante({ requerido: emitir.certificacion?.firmante_id ?? null, elegido: firmante || null, firmantes }) : null
 
   function abrir(e: Elegible) {
     setEmitir(e)
@@ -122,10 +125,18 @@ export function ElegiblesPanel({ elegibles, plantillas, firmantes }: { elegibles
             <label className="block space-y-1">
               <span className="font-medium">Firmante</span>
               <select className="h-8 w-full rounded-lg border bg-background px-2" value={firmante} onChange={(e) => setFirmante(e.target.value)} disabled={enviando}>
-                <option value="">Sin firmante</option>
-                {firmantesActivos.map((f) => <option key={f.id} value={f.id}>{f.nombre} — {f.cargo}</option>)}
+                <option value="">Sin firmante (solo a nombre de la institución)</option>
+                {firmantesActivos.map((f) => <option key={f.id} value={f.id}>{f.nombre} — {f.cargo}{f.firma_path ? "" : " (sin firma cargada)"}</option>)}
               </select>
             </label>
+            {!firmante && (
+              <p className="rounded-lg border bg-muted/40 p-2 text-xs text-muted-foreground">
+                «Sin firmante» significa que el certificado no llevará el nombre, el cargo ni la firma de una autoridad: solo el nombre de la institución. Sigue siendo verificable con su código QR.
+                {firmantesActivos.length === 0 && " Aún no registraste firmantes."}{" "}
+                <Link href="/admin/certificados/firmantes" className="font-medium text-primary underline underline-offset-2">Agregar firmante</Link>
+              </p>
+            )}
+            {problemaElegido && <p role="alert" className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs">{problemaElegido}</p>}
             <label className="flex items-start gap-2">
               <input type="checkbox" className="mt-0.5 size-4 accent-primary" checked={confirmo} onChange={(e) => setConfirmo(e.target.checked)} disabled={enviando} />
               Verifiqué los requisitos y autorizo la emisión en nombre de la institución.
@@ -133,7 +144,7 @@ export function ElegiblesPanel({ elegibles, plantillas, firmantes }: { elegibles
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" disabled={enviando} autoFocus />}>Volver</DialogClose>
-            <Button onClick={confirmar} disabled={enviando || !confirmo}>
+            <Button onClick={confirmar} disabled={enviando || !confirmo || problemaElegido !== null}>
               {enviando && <Loader2 className="animate-spin" aria-hidden />}
               Emitir
             </Button>

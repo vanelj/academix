@@ -35,6 +35,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { guardarCertificacionCurso } from "@/lib/certificados/acciones"
+import { fechaHoraLimaTexto } from "@/lib/fechas"
 import { cambiarEstadoCurso, crearCurso, editarCurso } from "@/lib/cursos/acciones"
 import type { DatosAsistente } from "@/lib/cursos/asistente"
 import { comprobarConflictos } from "@/lib/cursos/asistente-acciones"
@@ -594,7 +595,7 @@ export function AsistenteCurso({ datos, pasoInicial }: { datos: DatosAsistente; 
               <History className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
               <span>
                 Encontramos cambios sin guardar de este {respaldo.base.cursoExiste ? "curso" : "curso nuevo"}, copiados en este navegador el{" "}
-                {new Date(respaldo.fecha).toLocaleString("es-PE")}. {respaldo.base.cursoExiste && !datos.curso && "Una parte ya se había guardado en Supabase. "}
+                {fechaHoraLimaTexto(respaldo.fecha)}. {respaldo.base.cursoExiste && !datos.curso && "Una parte ya se había guardado en Supabase. "}
                 La copia no conserva la imagen de portada ni los enlaces de clase nuevos o modificados (por privacidad).
               </span>
             </p>
@@ -947,7 +948,7 @@ export function AsistenteCurso({ datos, pasoInicial }: { datos: DatosAsistente; 
 type EstadoChip = "vacio" | "local" | "guardando" | "guardado" | "publicado" | "error"
 
 function EstadoGuardadoChip({ estado, ultimo }: { estado: EstadoChip; ultimo: Date | null }) {
-  const hora = ultimo?.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
+  const hora = ultimo?.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", timeZone: "America/Lima" })
   return (
     <div role="status" aria-live="polite" className="text-sm">
       {estado === "vacio" && <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-muted-foreground">Aún no guardado</span>}

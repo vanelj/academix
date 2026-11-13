@@ -8,6 +8,7 @@ import {
   BUCKET_MATERIALES,
   enlaceMaterialValido,
   MATERIAL_MAX_BYTES,
+  modoApertura,
   nombreArchivoSeguro,
   rutaDeGrupo,
   SEGUNDOS_URL_FIRMADA,
@@ -25,7 +26,7 @@ import { createClient } from "@/lib/supabase/server"
  * limitan la carpeta <institución>/<grupo>/); aquí se registran y validan.
  */
 
-export type ResultadoMaterial = { ok: true; id?: string; url?: string } | { ok: false; mensaje: string; migracionPendiente?: boolean }
+export type ResultadoMaterial = { ok: true; id?: string; url?: string; modo?: "enlace" | "vista" | "descarga" } | { ok: false; mensaje: string; migracionPendiente?: boolean }
 
 const SIN_PERMISO = { ok: false as const, mensaje: "No tienes permiso para gestionar los materiales de este grupo." }
 const PENDIENTE = { ok: false as const, migracionPendiente: true, mensaje: "Los materiales aún no están habilitados (falta la actualización «aula_academica_v5»)." }
@@ -62,7 +63,7 @@ async function gestorDeGrupo(grupoId: string): Promise<Gestor | null> {
       .eq("docente_id", docente.userId).eq("institucion_id", docente.institucionId).maybeSingle()
     return data && data.estado !== "cancelado" ? docente : null
   }
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return null
   const ctx = await obtenerContexto()
   if (ctx.estado !== "con_perfil") return null
@@ -180,20 +181,25 @@ export async function abrirMaterial(materialId: unknown, descargar = false): Pro
   const ctx = await obtenerContexto()
   if (ctx.estado !== "con_perfil" || !ctx.rolActivo) return { ok: false, mensaje: "Tu sesión terminó. Vuelve a iniciar sesión." }
   const supabase = await createClient()
-  const { data } = await supabase.from("materiales_curso").select("tipo, enlace, archivo_path, archivo_nombre").eq("id", id.data).maybeSingle()
-  if (!data) return { ok: false, mensaje: "El material ya no está disponible." }
+  const { data } = await supabase.from("materiales_curso").select("tipo, enlace, archivo_path, archivo_nombre, archivo_tipo").eq("id", id.data).maybeSingle()
+  if (!data) return { ok: false, mensaje: "El material ya no está disponible o ya no tienes acceso a él." }
   if (data.tipo === "enlace") {
     const enlace = enlaceMaterialValido(String(data.enlace ?? ""))
-    return enlace ? { ok: true, url: enlace } : { ok: false, mensaje: "El enlace no es válido." }
+    return enlace ? { ok: true, url: enlace, modo: "enlace" } : { ok: false, mensaje: "El enlace no es válido." }
   }
+  // Word, Excel o PowerPoint se DESCARGAN (el navegador no los muestra): con
+  // Content-Disposition de descarga y el nombre original del archivo.
+  const modo = modoApertura({ tipo: "archivo", archivo_tipo: (data.archivo_tipo as string | null) ?? null }, descargar)
   const { data: firmada, error } = await supabase.storage
     .from(BUCKET_MATERIALES)
-    .createSignedUrl(String(data.archivo_path), SEGUNDOS_URL_FIRMADA, descargar ? { download: String(data.archivo_nombre ?? "material") } : undefined)
+    .createSignedUrl(String(data.archivo_path), SEGUNDOS_URL_FIRMADA, modo === "descarga" ? { download: String(data.archivo_nombre ?? "material") } : undefined)
   if (error || !firmada?.signedUrl) {
     console.error("[materiales] url firmada", error?.message)
-    return { ok: false, mensaje: "No se pudo abrir el archivo. Inténtalo de nuevo." }
+    // Objeto inexistente en Storage (borrado o subida incompleta): mensaje claro, sin reintento inútil.
+    if (/not.?found|no existe|404/i.test(error?.message ?? "")) return { ok: false, mensaje: "El archivo ya no está en el almacenamiento. Pide al docente que lo vuelva a subir." }
+    return { ok: false, mensaje: "No se pudo preparar el enlace seguro. Inténtalo de nuevo." }
   }
-  return { ok: true, url: firmada.signedUrl }
+  return { ok: true, url: firmada.signedUrl, modo }
 }
 
 function revalidar(grupoId: string) {

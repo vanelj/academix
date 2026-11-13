@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm, useWatch, type Control, type FieldPath } from "react-hook-form"
+import { AvisoCruceDocente } from "@/components/admin/grupos/aviso-cruce-docente"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2, RotateCcw, TriangleAlert } from "lucide-react"
 
@@ -64,6 +65,8 @@ export function GrupoForm({
   const { isDirty } = form.formState
   useProtegerCambios(isDirty)
   const docenteElegido = useWatch({ control: form.control, name: "docente_id" })
+  const fechaInicioElegida = useWatch({ control: form.control, name: "fecha_inicio" })
+  const fechaFinElegida = useWatch({ control: form.control, name: "fecha_fin" })
   // Advertencia al retirar o cambiar el docente de un grupo vigente con estudiantes potenciales.
   const cambioDocenteVigente =
     editando && (estado === "abierto" || estado === "en_curso") && docenteElegido !== valoresIniciales.docente_id
@@ -222,6 +225,7 @@ export function GrupoForm({
                         </FieldDescription>
                       )
                     )}
+                    {grupoId && <AvisoCruceDocente grupoId={grupoId} docenteId={field.value || null} fechaInicio={fechaInicioElegida} fechaFin={fechaFinElegida} />}
                     <FieldError errors={[fieldState.error]} />
                   </Field>
                 )

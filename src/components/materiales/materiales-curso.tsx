@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { abrirDocumento } from "@/lib/abrir-documento"
 import { abrirMaterial, crearMaterial, editarMaterial, retirarMaterial } from "@/lib/materiales/acciones"
 import type { Material } from "@/lib/materiales/datos"
 import {
@@ -19,6 +20,7 @@ import {
   BUCKET_MATERIALES,
   enlaceMaterialValido,
   MATERIAL_MAX_BYTES,
+  modoApertura,
   rutaMaterial,
   tamanoLegible,
   TIPOS_MATERIAL,
@@ -48,20 +50,14 @@ export function MaterialesCurso({ materiales, gestion }: { materiales: Material[
   async function abrir(m: Material, descargar: boolean) {
     if (abriendo) return
     setAbriendo(m.id)
-    // Ventana abierta en el gesto del usuario (evita bloqueos de ventanas emergentes).
-    const ventana = descargar ? null : window.open("", "_blank", "noopener,noreferrer")
     try {
-      const r = await abrirMaterial(m.id, descargar)
-      if (r.ok && r.url) {
-        if (ventana) ventana.location.href = r.url
-        else window.location.assign(r.url)
-      } else {
-        ventana?.close()
-        notificar.error("No se pudo abrir el material", { descripcion: r.ok ? undefined : r.mensaje })
+      // Ver lib/abrir-documento.ts: causa y corrección del «documento en blanco».
+      const r = await abrirDocumento(modoApertura(m, descargar), () => abrirMaterial(m.id, descargar))
+      if (r.ok && r.modo === "descarga") {
+        notificar.exito("Descarga iniciada", { descripcion: "Los documentos de Word, Excel y PowerPoint se abren con su programa." })
+      } else if (!r.ok) {
+        notificar.error("No se pudo abrir el material", { descripcion: r.mensaje, accion: { etiqueta: "Reintentar", alPulsar: () => void abrir(m, descargar) } })
       }
-    } catch {
-      ventana?.close()
-      notificar.error("No se pudo abrir el material", { descripcion: "Revisa tu conexión e inténtalo de nuevo." })
     } finally {
       setAbriendo(null)
     }
@@ -109,10 +105,10 @@ export function MaterialesCurso({ materiales, gestion }: { materiales: Material[
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-1.5">
                     <Button variant="outline" size="sm" onClick={() => abrir(m, false)} disabled={abriendo === m.id}>
-                      {abriendo === m.id ? <Loader2 className="animate-spin" aria-hidden /> : <ExternalLink aria-hidden />}
-                      Abrir
+                      {abriendo === m.id ? <Loader2 className="animate-spin" aria-hidden /> : modoApertura(m) === "descarga" ? <Download aria-hidden /> : <ExternalLink aria-hidden />}
+                      {modoApertura(m) === "descarga" ? "Descargar" : "Abrir"}
                     </Button>
-                    {m.tipo === "archivo" && (
+                    {modoApertura(m) === "vista" && (
                       <Button variant="outline" size="sm" onClick={() => abrir(m, true)} disabled={abriendo === m.id} aria-label={`Descargar ${m.titulo}`}>
                         <Download aria-hidden />
                       </Button>

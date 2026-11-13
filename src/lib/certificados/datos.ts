@@ -232,3 +232,13 @@ export async function leerContenido(supabase: Cliente, institucionId: string, ce
     .eq("institucion_id", institucionId).eq("certificado_id", certificadoId).maybeSingle().overrideTypes<ContenidoCertificado, { merge: false }>()
   return data ?? null
 }
+
+/**
+ * Comprobantes de certificado pendientes de revisión (null si la tabla aún no
+ * existe o la consulta falla: la interfaz no inventa cifras).
+ */
+export async function contarPagosCertificadoPendientes(institucionId: string): Promise<number | null> {
+  const supabase = await createClient()
+  const { count, error } = await supabase.from("pagos_certificado").select("id", { count: "exact", head: true }).eq("institucion_id", institucionId).eq("estado", "pendiente")
+  return error ? null : (count ?? 0)
+}

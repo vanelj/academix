@@ -11,7 +11,8 @@ import { buttonVariants } from "@/components/ui/button"
 import { requerirPanel } from "@/lib/auth/contexto"
 import { resumenAdmin } from "@/lib/paneles/resumen"
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({ searchParams }: PageProps<"/admin">) {
+  const { aviso } = await searchParams
   // Cada página vuelve a comprobar el acceso: el layout no se re-ejecuta al navegar entre páginas.
   const sesion = await requerirPanel("admin")
   const institucion = sesion.institucion ?? "tu institución"
@@ -21,6 +22,11 @@ export default async function AdminDashboardPage() {
 
   return (
     <>
+      {aviso === "sin-permiso" && (
+        <p role="alert" className="mb-4 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
+          No tienes permiso para esa sección. Pide al administrador principal de tu institución que te otorgue el módulo correspondiente.
+        </p>
+      )}
       <BienvenidaPanel
         saludo={`Hola, ${sesion.perfil.nombres}`}
         descripcion={`Gestiona la oferta académica, las inscripciones y los pagos de ${institucion}.`}

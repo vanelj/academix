@@ -47,7 +47,7 @@ type Filtro = "todas" | "activas" | "inactivas"
 type Dialogo = { tipo: "crear" } | { tipo: "editar"; categoria: Categoria } | null
 type Confirmacion = { tipo: "eliminar" | "desactivar"; categoria: Categoria } | null
 
-const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" })
+const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" , timeZone: "America/Lima" })
 
 export function CategoriasPanel({ categorias }: { categorias: Categoria[] }) {
   const router = useRouter()

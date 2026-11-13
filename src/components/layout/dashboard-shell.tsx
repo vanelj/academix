@@ -37,6 +37,7 @@ export function DashboardShell({ user, isDemo, children }: DashboardShellProps) 
           role={user.role}
           institution={user.institution}
           institutionLogo={user.institutionLogo ?? null}
+          areas={user.areas}
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
         />

@@ -32,7 +32,7 @@ export function EstadoSolicitudBadge({ estado, reservaVencida = false }: { estad
 }
 
 export const formatoSolesSolicitud = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" })
-export const formatoFechaHoraSolicitud = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" })
+export const formatoFechaHoraSolicitud = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" , timeZone: "America/Lima" })
 const formatoFechaUtc = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeZone: "UTC" })
 /** Fecha "AAAA-MM-DD" sin desfase de zona horaria. */
 export const fechaSimple = (iso: string) => formatoFechaUtc.format(new Date(`${iso}T00:00:00Z`))

@@ -21,7 +21,7 @@ import { idSchema } from "@/lib/validations/grupo"
 export type ResultadoSolicitud = { ok: true } | { ok: false; mensaje: string; gravedad: "error" | "advertencia" }
 
 export async function cancelarSolicitudAdmin(id: unknown): Promise<ResultadoSolicitud> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("estudiantes")
   if (!institucionId) return { ok: false, gravedad: "error", mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
   const v = idSchema.safeParse(id)
   if (!v.success) return { ok: false, gravedad: "error", mensaje: "No se pudo completar la operación." }

@@ -34,7 +34,7 @@ const ids = z.object({ cursoId: z.uuid(), cuotaId: z.uuid().nullable(), idClient
  * intento anterior ya creó esa cuota, se actualiza en lugar de duplicarla.
  */
 export async function guardarCuotaPlan(cursoId: unknown, cuotaId: unknown, datos: unknown, idCliente?: unknown): Promise<ResultadoPlan> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
   const id = ids.safeParse({ cursoId, cuotaId, idCliente })
   if (!id.success) return NO_ENCONTRADO
@@ -86,7 +86,7 @@ export async function guardarCuotaPlan(cursoId: unknown, cuotaId: unknown, datos
 }
 
 export async function eliminarCuotaPlan(cursoId: unknown, cuotaId: unknown): Promise<ResultadoPlan> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
   const id = ids.safeParse({ cursoId, cuotaId })
   if (!id.success || !id.data.cuotaId) return NO_ENCONTRADO

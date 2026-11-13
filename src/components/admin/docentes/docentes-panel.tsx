@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Eye, Loader2, Presentation, Search, UserPlus, UsersRound, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Eye, Loader2, Presentation, Search, UserPlus, X } from "lucide-react"
 
 import { DocenteFormDialog } from "@/components/admin/docentes/docente-form-dialog"
 import { EstadoCuenta, EstadoRol } from "@/components/admin/docentes/docente-ui"
@@ -118,17 +118,11 @@ export function DocentesPanel({
               className="pl-8"
             />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={() => setAsignar(true)} disabled={miembros.length === 0}
-              title={miembros.length === 0 ? "No hay otras personas de tu institución sin el rol docente." : undefined}>
-              <UsersRound aria-hidden />
-              Asignar a un miembro
-            </Button>
-            <Button onClick={() => setRegistrar(true)} disabled={!cuentasConfiguradas}>
-              <UserPlus aria-hidden />
-              Registrar docente
-            </Button>
-          </div>
+          {/* Una sola entrada: el diálogo ofrece «persona nueva» o «ya está en mi institución» solo si aplica. */}
+          <Button onClick={() => (cuentasConfiguradas ? setRegistrar(true) : setAsignar(true))} disabled={!cuentasConfiguradas && miembros.length === 0}>
+            <UserPlus aria-hidden />
+            Agregar docente
+          </Button>
         </div>
         <div role="group" aria-label="Filtrar por estado" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:flex sm:w-fit">
           {filtros.map((valor) => (
@@ -171,7 +165,7 @@ export function DocentesPanel({
             cuentasConfiguradas ? (
               <Button onClick={() => setRegistrar(true)}>
                 <UserPlus aria-hidden />
-                Registrar docente
+                Agregar docente
               </Button>
             ) : undefined
           }
@@ -264,7 +258,12 @@ export function DocentesPanel({
         </>
       )}
 
-      <DocenteFormDialog abierto={registrar} onAbiertoChange={setRegistrar} docente={null} />
+      <DocenteFormDialog
+        abierto={registrar}
+        onAbiertoChange={setRegistrar}
+        docente={null}
+        miembroExistente={{ disponibles: miembros.length, elegir: () => { setRegistrar(false); setAsignar(true) } }}
+      />
       <AsignarMiembroDialog abierto={asignar} onAbiertoChange={setAsignar} miembros={miembros} />
     </>
   )

@@ -22,6 +22,7 @@ import { obtenerDocente } from "@/lib/docentes/datos"
 import { obtenerGrupos, type GrupoResumen } from "@/lib/grupos/datos"
 import { ahoraAcademico, crucesSemanales, DIAS_LARGOS, type GrupoCalendario } from "@/lib/horarios/calendario"
 import { cuentasConfiguradas } from "@/lib/supabase/admin"
+import { fechaDeCalendario } from "@/lib/fechas"
 import { cn } from "@/lib/utils"
 import { idPerfilSchema } from "@/lib/validations/docente"
 
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
   title: "Docente · Academix",
 }
 
-const fechaCorta = (iso: string) => formatoFechaDocente.format(new Date(`${iso}T00:00:00`))
+const fechaCorta = (iso: string) => fechaDeCalendario(iso)
 
 const SECCIONES = ["informacion", "grupos", "horario"] as const
 

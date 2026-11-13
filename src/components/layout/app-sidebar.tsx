@@ -9,6 +9,7 @@ import { DENOMINACION, LogoAcademix, NOMBRE_MARCA } from "@/components/marca/log
 import { useNavegacionProtegida } from "@/components/layout/proteccion-cambios"
 import { Button } from "@/components/ui/button"
 import { isNavItemActive, roleConfig, type Role } from "@/config/navigation"
+import { areaDeRuta } from "@/lib/admin/permisos"
 import { cn } from "@/lib/utils"
 
 type AppSidebarProps = {
@@ -17,12 +18,24 @@ type AppSidebarProps = {
   institutionLogo?: string | null
   open: boolean
   onClose: () => void
+  /** Solo admin: áreas permitidas. El servidor también las exige en cada sección. */
+  areas?: string[]
 }
 
-export function AppSidebar({ role, institution, institutionLogo, open, onClose }: AppSidebarProps) {
+export function AppSidebar({ role, institution, institutionLogo, open, onClose, areas }: AppSidebarProps) {
   const pathname = usePathname()
   const proteger = useNavegacionProtegida()
-  const { sections, label } = roleConfig[role]
+  const { label } = roleConfig[role]
+  const sections = roleConfig[role].sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((item) => {
+        if (role !== "admin" || !areas) return true
+        const area = areaDeRuta(item.href)
+        return area === null || areas.includes(area)
+      }),
+    }))
+    .filter((s) => s.items.length > 0)
 
   return (
     <aside

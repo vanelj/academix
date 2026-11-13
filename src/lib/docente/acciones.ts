@@ -20,7 +20,7 @@ import { createClient } from "@/lib/supabase/server"
  */
 
 export type ResultadoNotas =
-  | { ok: true; guardadas: number; errores: ErrorNota[] }
+  | { ok: true; guardadas: number; errores: ErrorNota[]; /** true = se guardó con publicación por nota (revision_funcional_v5). */ publicacionDirecta?: boolean }
   | { ok: false; mensaje: string; errores?: ErrorNota[] }
 
 const entrada = z.object({
@@ -33,19 +33,58 @@ type ErrorBd = { code?: string; message: string }
 function mensajeBd(e: ErrorBd): string {
   if (esErrorDeRed(e)) return "No se pudo conectar con el servidor. Tus cambios siguen en pantalla: inténtalo de nuevo."
   if (/resultado final/i.test(e.message)) return "El resultado final ya está cerrado: la institución debe reabrirlo para cambiar notas."
+  // Mensajes propios de guardar_calificaciones (ya están en español y son seguros).
+  if (/motivo|entre 0 y 20|no está activa|no pertenece|cancelado/i.test(e.message)) return e.message
   if (e.code === "42501") return "No tienes permiso para registrar notas en este grupo."
   if (e.code === "23514") return "La nota debe estar entre 0 y 20."
   console.error("[docente] notas", e.code, e.message)
   return "No se pudo guardar esta nota. Inténtalo de nuevo."
 }
 
-export async function guardarNotas(grupoId: unknown, cambios: unknown): Promise<ResultadoNotas> {
+const opcionesGuardado = z.object({ publicar: z.boolean().default(true), motivo: z.string().trim().max(500).default("") }).default({ publicar: true, motivo: "" })
+
+/**
+ * Guarda notas. Con revision_funcional_v5 usa guardar_calificaciones:
+ *  - `publicar` (por defecto): cada nota guardada queda visible para SU
+ *    estudiante al instante; nunca publica borradores de otros estudiantes.
+ *  - Corregir o anular una nota que el estudiante ya ve exige `motivo`; el
+ *    cambio queda en el historial inmutable (sin borrado físico desde la app).
+ * Sin la migración: el flujo anterior (guardar = borrador; se publica por evaluación).
+ */
+export async function guardarNotas(grupoId: unknown, cambios: unknown, opciones?: unknown): Promise<ResultadoNotas> {
   const docente = await docenteActual()
   if (!docente) return { ok: false, mensaje: "Tu sesión no tiene el rol Docente activo. Vuelve a iniciar sesión." }
   const v = entrada.safeParse({ grupoId, cambios })
-  if (!v.success) return { ok: false, mensaje: "Los datos enviados no son válidos. Recarga la página e inténtalo de nuevo." }
+  const o = opcionesGuardado.safeParse(opciones ?? undefined)
+  if (!v.success || !o.success) return { ok: false, mensaje: "Los datos enviados no son válidos. Recarga la página e inténtalo de nuevo." }
   const { institucionId, userId } = docente
   const supabase = await createClient()
+
+  // 1. Registro auditado con publicación por nota (si la función existe).
+  const rpc = await supabase.rpc("guardar_calificaciones", {
+    p_grupo: v.data.grupoId,
+    p_notas: v.data.cambios.map((c) => ({ matricula: c.matriculaId, evaluacion: c.evaluacionId, nota: c.nota.trim().replace(",", ".") || null })),
+    p_publicar: o.data.publicar,
+    p_motivo: o.data.motivo || null,
+  })
+  if (!rpc.error) {
+    const r = (rpc.data ?? {}) as { guardadas?: number; errores?: { matricula: string; evaluacion: string; mensaje: string }[] }
+    const guardadas = Number(r.guardadas ?? 0)
+    if (guardadas > 0) {
+      revalidatePath("/docente", "layout")
+      revalidatePath(`/admin/evaluaciones/${v.data.grupoId}`)
+      revalidatePath("/estudiante", "layout")
+    }
+    return {
+      ok: true,
+      guardadas,
+      publicacionDirecta: true,
+      errores: (r.errores ?? []).map((e) => ({ matriculaId: e.matricula, evaluacionId: e.evaluacion, mensaje: mensajeBd({ message: e.mensaje }) })),
+    }
+  }
+  if (!["PGRST202", "42883"].includes(rpc.error.code ?? "")) return { ok: false, mensaje: mensajeBd(rpc.error) }
+
+  // 2. Sin la migración: flujo anterior (RLS «docente gestiona calificaciones»).
 
   const { data: grupo, error: gError } = await supabase
     .from("grupos")

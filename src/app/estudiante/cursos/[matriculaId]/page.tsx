@@ -9,6 +9,7 @@ import { ProximaClase, type DatosProximaClase } from "@/components/estudiante/pr
 import { CalendarioAcademico } from "@/components/horarios/calendario-academico"
 import { Pestanas, seccionValida } from "@/components/layout/pestanas"
 import { MaterialesCurso } from "@/components/materiales/materiales-curso"
+import { TareasAlumno } from "@/components/tareas/tareas-alumno"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,15 +21,17 @@ import { obtenerMisCursos, type MiCurso } from "@/lib/estudiantes/mis-cursos"
 import { ETIQUETA_ESTADO_ACADEMICO, estadoAcademico } from "@/lib/estudiantes/tarjetas"
 import { ahoraAcademico, proximaClase } from "@/lib/horarios/calendario"
 import { leerMateriales, type LecturaMateriales } from "@/lib/materiales/datos"
+import { leerTareasAlumno, type LecturaTareas } from "@/lib/tareas/datos"
+import type { Entrega, Tarea } from "@/lib/tareas/reglas"
 import { cn } from "@/lib/utils"
 import { idSchema } from "@/lib/validations/grupo"
 
 export const metadata: Metadata = { title: "Aula del curso · Academix" }
 
-const SECCIONES = ["inicio", "clases", "materiales", "notas", "certificado"] as const
+const SECCIONES = ["inicio", "clases", "materiales", "tareas", "notas", "certificado"] as const
 const fecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeZone: "UTC" })
 const f = (iso: string) => fecha.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
-const MODALIDAD: Record<string, string> = { virtual: "Virtual", presencial: "Presencial", mixta: "Mixta (virtual y presencial)" }
+const MODALIDAD: Record<string, string> = { virtual: "100 % virtual" }
 
 /**
  * Aula académica de UNA matrícula del estudiante: inicio, clases y horario,
@@ -71,6 +74,14 @@ export default async function AulaPage({ params, searchParams }: PageProps<"/est
     if (activa && (seccion === "inicio" || seccion === "notas")) notas = (await obtenerMisNotas([curso]))[0] ?? null
   } catch {
     notas = null
+  }
+  let tareas: LecturaTareas<{ tarea: Tarea; entrega: Entrega | null }[]> | "error" = { disponible: false }
+  if (activa && seccion === "tareas") {
+    try {
+      tareas = await leerTareasAlumno(curso.grupoId, curso.matriculaId)
+    } catch {
+      tareas = "error"
+    }
   }
   if (activa && seccion === "materiales") {
     try {
@@ -132,6 +143,7 @@ export default async function AulaPage({ params, searchParams }: PageProps<"/est
               { valor: "inicio", etiqueta: "Inicio", href: base },
               { valor: "clases", etiqueta: "Clases y horario", href: `${base}?seccion=clases` },
               { valor: "materiales", etiqueta: "Materiales", href: `${base}?seccion=materiales` },
+              { valor: "tareas", etiqueta: "Tareas", href: `${base}?seccion=tareas` },
               { valor: "notas", etiqueta: "Evaluaciones y notas", href: `${base}?seccion=notas` },
               { valor: "certificado", etiqueta: "Certificado", href: `${base}?seccion=certificado` },
             ]}
@@ -185,6 +197,12 @@ export default async function AulaPage({ params, searchParams }: PageProps<"/est
             materiales === "error" ? <ErrorAula texto="No se pudieron cargar los materiales. Recarga la página en unos minutos." />
               : materiales.disponible ? <MaterialesCurso materiales={materiales.materiales} />
                 : <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Los materiales del curso estarán disponibles próximamente.</CardContent></Card>
+          )}
+
+          {seccion === "tareas" && (
+            tareas === "error" ? <ErrorAula texto="No se pudieron cargar tus tareas. Recarga la página en unos minutos." />
+              : tareas.disponible ? <TareasAlumno items={tareas.datos} estudianteId={sesion.userId} />
+                : <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Las tareas del curso estarán disponibles próximamente.</CardContent></Card>
           )}
 
           {seccion === "notas" && (notas ? <NotasCurso datos={notas} /> : <ErrorAula texto="No se pudieron cargar tus notas. Recarga la página en unos minutos." />)}

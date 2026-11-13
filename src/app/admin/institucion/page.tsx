@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalendarDays, Fingerprint, ShieldCheck, UserRound } from "lucide-react"
 
+import { HoraAcademicaForm } from "@/components/admin/hora-academica-form"
 import { InstitucionForm } from "@/components/admin/institucion-form"
 import { LogoInstitucion } from "@/components/admin/logo-institucion"
 import { LogoUploader } from "@/components/admin/logo-uploader"
@@ -9,12 +10,13 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { nombreCompleto, requerirPanel } from "@/lib/auth/contexto"
 import { obtenerInstitucion } from "@/lib/institucion/datos"
+import { leerMinutosHoraAcademica } from "@/lib/institucion/hora-academica-datos"
 
 export const metadata: Metadata = {
   title: "Mi institución · Academix",
 }
 
-const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "long" })
+const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "long" , timeZone: "America/Lima" })
 
 // Módulo "Mi institución": solo administrador con rol activo; la institución sale del perfil.
 export default async function MiInstitucionPage() {
@@ -22,6 +24,7 @@ export default async function MiInstitucionPage() {
   const institucion = sesion.perfil.institucionId
     ? await obtenerInstitucion(sesion.perfil.institucionId)
     : null
+  const horaAcademica = sesion.perfil.institucionId ? await leerMinutosHoraAcademica(sesion.perfil.institucionId) : null
 
   if (!institucion) {
     return (
@@ -110,6 +113,9 @@ export default async function MiInstitucionPage() {
             direccion: institucion.direccion ?? "",
           }}
         />
+      </div>
+      <div className="mt-6 max-w-xl">
+        <HoraAcademicaForm actual={horaAcademica} />
       </div>
     </>
   )

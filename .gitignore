@@ -48,4 +48,6 @@ next-env.d.ts
 
 # Archivos temporales
 *.bak
-*.tmpgit remote add origin https://github.com/vanelj/academix.git
+*.tmp
+# Respaldos locales de plantillas remotas (npm run correos:sincronizar -- --aplicar)
+.correos-respaldo/

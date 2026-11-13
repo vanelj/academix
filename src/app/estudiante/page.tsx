@@ -17,7 +17,7 @@ export default async function EstudiantePage() {
         descripcion="Sigue tus cursos, solicitudes y pagos. Puedes estudiar en cursos de distintas instituciones."
         contexto={["Estudiante"]}
         acciones={
-          <Link href="/cursos" className={buttonVariants()}>
+          <Link href="/estudiante/explorar" className={buttonVariants()}>
             <Compass aria-hidden />
             Explorar cursos
           </Link>
@@ -39,7 +39,7 @@ export default async function EstudiantePage() {
             Todavía no tienes matrículas ni solicitudes. Explora el catálogo para
             encontrar un curso que te interese.
           </p>
-          <Link href="/cursos" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/estudiante/explorar" className={buttonVariants({ variant: "outline" })}>
             Ver cursos disponibles
           </Link>
         </div>

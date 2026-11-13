@@ -46,7 +46,7 @@ const MENSAJE_CONFLICTO =
  *   vuelve a "sin políticas configuradas" en vez de publicar textos vacíos.
  */
 export async function guardarPoliticas(datos: unknown, versionBase: unknown): Promise<ResultadoPoliticas> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("institucion")
   if (!institucionId) {
     return { ok: false, mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
   }

@@ -48,6 +48,8 @@ export interface CourseSummary {
   price?: number | null;
   /** Muestra la etiqueta «demo». Úsalo solo con datos de demostración. */
   isDemo?: boolean;
+  /** Estado de inscripción según sus grupos reales (p. ej. «Inscripciones abiertas», «En curso»). */
+  availability?: { label: string; tone: 'open' | 'soon' | 'running' | 'closed'; detail?: string | null } | null;
 }
 
 /** Variante de color para la franja de la tarjeta de institución. */

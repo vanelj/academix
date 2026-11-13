@@ -41,23 +41,34 @@ export function DocenteFormDialog({
   abierto,
   onAbiertoChange,
   docente,
+  miembroExistente,
 }: {
   abierto: boolean
   onAbiertoChange: (abierto: boolean) => void
   docente: Edicion | null
+  /** Única entrada «Agregar docente»: si hay personas de la institución sin el rol, se ofrece ese camino. */
+  miembroExistente?: { disponibles: number; elegir: () => void }
 }) {
   const [guardando, setGuardando] = useState(false)
   return (
     <Dialog open={abierto} onOpenChange={(v) => !guardando && onAbiertoChange(v)}>
       <DialogContent className="sm:max-w-lg" showCloseButton={!guardando}>
         <DialogHeader>
-          <DialogTitle>{docente ? "Editar datos del docente" : "Registrar docente"}</DialogTitle>
+          <DialogTitle>{docente ? "Editar datos del docente" : "Agregar docente"}</DialogTitle>
           <DialogDescription>
             {docente
               ? "El correo de acceso no se modifica desde aquí."
-              : "Se creará su cuenta y recibirá un correo de invitación para crear su contraseña. No necesita tener cursos asignados."}
+              : "Registra sus datos y le enviaremos una invitación para activar su cuenta. Los grupos se asignan después."}
           </DialogDescription>
         </DialogHeader>
+        {!docente && miembroExistente && miembroExistente.disponibles > 0 && (
+          <div role="group" aria-label="¿A quién agregas?" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-sm">
+            <span className="rounded-md bg-background px-3 py-1.5 text-center font-medium shadow-sm" aria-current="true">Persona nueva</span>
+            <button type="button" className="rounded-md px-3 py-1.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring" onClick={miembroExistente.elegir} disabled={guardando}>
+              Ya está en mi institución ({miembroExistente.disponibles})
+            </button>
+          </div>
+        )}
         <Formulario docente={docente} guardando={guardando} setGuardando={setGuardando} alTerminar={() => onAbiertoChange(false)} />
       </DialogContent>
     </Dialog>
@@ -121,10 +132,17 @@ function Formulario({
 
   return (
     <form noValidate onSubmit={(e) => form.handleSubmit(onSubmit)(e)} aria-busy={guardando}>
-      <fieldset disabled={guardando} className="grid min-w-0 gap-x-4 gap-y-5 sm:grid-cols-2">
+      <fieldset disabled={guardando} className="grid min-w-0 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <legend className="mb-3 text-sm font-semibold">Datos personales</legend>
         <Campo control={form.control} name="nombres" label="Nombres" required autoComplete="off" autoFocus />
         <Campo control={form.control} name="apellidos" label="Apellidos" required autoComplete="off" />
-        {!docente && (
+        <Campo control={form.control} name="dni" label="Documento de identidad" autoComplete="off" descripcion="Único dentro de tu institución." />
+        <Campo control={form.control} name="telefono" label="Teléfono" type="tel" autoComplete="off" />
+      </fieldset>
+      {!docente && (
+        <fieldset disabled={guardando} className="mt-5 grid min-w-0 gap-4 border-t pt-4">
+          <legend className="sr-only">Acceso a Academix</legend>
+          <p className="text-sm font-semibold">Acceso a Academix</p>
           <Campo
             control={form.control}
             name="correo"
@@ -132,13 +150,15 @@ function Formulario({
             required
             type="email"
             autoComplete="off"
-            className="sm:col-span-2"
-            descripcion="Será su usuario de acceso. Le llegará la invitación a este correo."
+            descripcion="Será su usuario de acceso."
           />
-        )}
-        <Campo control={form.control} name="dni" label="Documento de identidad" autoComplete="off" descripcion="Único dentro de tu institución." />
-        <Campo control={form.control} name="telefono" label="Teléfono" type="tel" autoComplete="off" />
-      </fieldset>
+          <ol className="list-decimal space-y-0.5 rounded-lg bg-muted/40 py-2 pr-3 pl-7 text-xs text-muted-foreground">
+            <li>Creamos su cuenta y le enviamos la invitación a este correo.</li>
+            <li>Aparece como «Activación pendiente» hasta que cree su contraseña.</li>
+            <li>Al activarla entra directo a su panel docente. Puedes reenviar la invitación desde su ficha.</li>
+          </ol>
+        </fieldset>
+      )}
       <DialogFooter className="mt-6">
         <DialogClose render={<Button type="button" variant="outline" disabled={guardando} />}>Cancelar</DialogClose>
         <Button type="submit" disabled={guardando}>

@@ -42,7 +42,7 @@ function validar(datos: unknown): { ok: true; fila: ReturnType<typeof medioParaG
 }
 
 export async function guardarMedioCobro(id: unknown, datos: unknown): Promise<ResultadoMedio> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return SIN_PERMISO
   const idValido = id === null ? null : z.uuid().safeParse(id)
   if (idValido && !idValido.success) return NO_ENCONTRADO
@@ -69,7 +69,7 @@ export async function guardarMedioCobro(id: unknown, datos: unknown): Promise<Re
 }
 
 export async function cambiarEstadoMedio(id: unknown, activo: unknown): Promise<ResultadoMedio> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return SIN_PERMISO
   const v = z.object({ id: z.uuid(), activo: z.boolean() }).safeParse({ id, activo })
   if (!v.success) return NO_ENCONTRADO
@@ -88,7 +88,7 @@ export async function cambiarEstadoMedio(id: unknown, activo: unknown): Promise<
 }
 
 export async function eliminarMedioCobro(id: unknown): Promise<ResultadoMedio> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return SIN_PERMISO
   const v = z.uuid().safeParse(id)
   if (!v.success) return NO_ENCONTRADO

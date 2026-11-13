@@ -98,7 +98,9 @@ export async function obtenerMisNotas(cursos: MiCurso[]): Promise<NotaCurso[]> {
     const evs: EvaluacionAlumno[] = (evals.data ?? [])
       .filter((e) => e.grupo_id === c.grupoId)
       .map((e) => ({ id: e.id, nombre: e.nombre, peso: Number(e.peso), fecha: e.fecha, publicada_en: e.publicada_en ?? null }))
-    const propias = (notas.data ?? []).filter((n) => n.matricula_id === c.matriculaId).map((n) => ({ evaluacion_id: n.evaluacion_id, nota: Number(n.nota) }))
+    const propias = (notas.data ?? []).filter((n) => n.matricula_id === c.matriculaId)// RLS solo devuelve al estudiante las notas que puede ver (evaluación publicada
+      // o nota publicada al guardarla): todas las filas recibidas son visibles.
+      .map((n) => ({ evaluacion_id: n.evaluacion_id, nota: Number(n.nota), visible: true }))
     return {
       matriculaId: c.matriculaId,
       curso: c.curso?.nombre ?? "Curso",

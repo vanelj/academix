@@ -224,27 +224,123 @@ export function clasesEnRango(grupos: GrupoCalendario[], desde: string, hasta: s
   return clases
 }
 
-/** Cruces semanales entre franjas de grupos distintos cuyos periodos se superponen. */
+const GENERICAS = new Set([
+  "curso", "cursos", "taller", "programa", "programación", "programacion", "introducción", "introduccion", "fundamentos", "diplomado",
+  "especialización", "especializacion", "básico", "basico", "intermedio", "avanzado", "nivel", "cero", "desde", "de", "del", "con",
+  "para", "la", "el", "los", "las", "y", "e", "en", "a", "al", "i", "ii", "iii",
+])
+
+/**
+ * Nombre corto de un curso para celdas pequeñas del calendario mensual:
+ * «Programación con Python desde Cero» → «Python», «Excel Avanzado» → «Excel».
+ * Si todo es genérico, la primera palabra. Máximo 14 caracteres.
+ */
+export function nombreCortoCurso(nombre: string): string {
+  const palabras = nombre.replace(/[«»"()[\]:,.;]/g, " ").split(/\s+/).filter(Boolean)
+  const util = palabras.find((p) => !GENERICAS.has(p.toLocaleLowerCase("es"))) ?? palabras[0] ?? nombre
+  return util.length > 14 ? `${util.slice(0, 13)}…` : util
+}
+
+/** Primera y última fecha entre `desde` y `hasta` que caen en `dia` (1 = lunes). null si ninguna. */
+export function fechasDelDia(desde: string, hasta: string, dia: number): { primera: string; ultima: string } | null {
+  if (!esFecha(desde) || !esFecha(hasta) || desde > hasta) return null
+  const primera = sumarDias(desde, (dia - diaSemana(desde) + 7) % 7)
+  if (primera > hasta) return null
+  const ultima = sumarDias(hasta, -((diaSemana(hasta) - dia + 7) % 7))
+  return { primera, ultima }
+}
+
+/** Periodo, día y horas en que dos programaciones coinciden DE VERDAD. */
+export type Coincidencia = { dia: number; desde: string; hasta: string; inicio: string; fin: string }
+
+type Programado = { desde: string; hasta: string; franjas: Pick<Franja, "dia_semana" | "hora_inicio" | "hora_fin">[] }
+
+/**
+ * Coincidencias reales entre dos programaciones: mismo día de la semana, horas
+ * que se superponen y AL MENOS UNA FECHA de ese día dentro de ambos periodos.
+ * Un horario parecido en meses distintos (o un lunes en un periodo que no
+ * contiene lunes comunes) no es un cruce. Base única de todos los avisos de cruce.
+ */
+export function coincidencias(a: Programado, b: Programado): Coincidencia[] {
+  const desde = a.desde > b.desde ? a.desde : b.desde
+  const hasta = a.hasta < b.hasta ? a.hasta : b.hasta
+  if (!esFecha(desde) || !esFecha(hasta) || desde > hasta) return []
+  const salida: Coincidencia[] = []
+  for (const fa of a.franjas) {
+    for (const fb of b.franjas) {
+      if (fa.dia_semana !== fb.dia_semana) continue
+      const ini = Math.max(minutos(fa.hora_inicio), minutos(fb.hora_inicio))
+      const fin = Math.min(minutos(fa.hora_fin), minutos(fb.hora_fin))
+      if (ini >= fin) continue
+      const fechas = fechasDelDia(desde, hasta, fa.dia_semana)
+      if (!fechas) continue
+      const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
+      salida.push({ dia: fa.dia_semana, desde: fechas.primera, hasta: fechas.ultima, inicio: hh(ini), fin: hh(fin) })
+    }
+  }
+  return salida
+}
+
+/** Cruces semanales entre franjas de grupos distintos con fechas que realmente coinciden. */
 export function crucesSemanales(grupos: GrupoCalendario[]): { a: GrupoCalendario; b: GrupoCalendario; dia: number }[] {
   const salida: { a: GrupoCalendario; b: GrupoCalendario; dia: number }[] = []
   const vigentes = grupos.filter(vigente)
   for (let i = 0; i < vigentes.length; i++) {
     for (let j = i + 1; j < vigentes.length; j++) {
-      const a = vigentes[i]
-      const b = vigentes[j]
-      if (a.desde > b.hasta || b.desde > a.hasta) continue
-      for (const fa of a.franjas) {
-        const fb = b.franjas.find(
-          (x) => x.dia_semana === fa.dia_semana && minutos(fa.hora_inicio) < minutos(x.hora_fin) && minutos(x.hora_inicio) < minutos(fa.hora_fin)
-        )
-        if (fb) {
-          salida.push({ a, b, dia: fa.dia_semana })
-          break
-        }
-      }
+      const c = coincidencias(vigentes[i], vigentes[j])[0]
+      if (c) salida.push({ a: vigentes[i], b: vigentes[j], dia: c.dia })
     }
   }
   return salida
+}
+
+/** Cruce del docente con UNO de sus otros grupos (datos ya filtrados por privacidad). */
+export type CruceDocente = Coincidencia & {
+  curso: string
+  grupo: string
+  /** Nombre de la institución; null si es OTRA institución (no se revela cuál ni su curso). */
+  institucion: string | null
+  otraInstitucion: boolean
+  /** Franja completa del otro grupo (p. ej. 19:00–21:00). */
+  franjaOtro: string
+}
+
+export type OtroGrupoDocente = Programado & { curso: string; grupo: string; institucion: string | null; otraInstitucion: boolean; estado?: string | null }
+
+/** Cruces de una programación propuesta con los demás grupos vigentes del docente. */
+export function crucesDocente(propuesta: Programado, otros: OtroGrupoDocente[]): CruceDocente[] {
+  const salida: CruceDocente[] = []
+  for (const o of otros) {
+    if (o.estado === "cancelado" || o.estado === "cerrado") continue
+    for (const c of coincidencias(propuesta, o)) {
+      const franja = o.franjas.find((f) => f.dia_semana === c.dia && minutos(f.hora_inicio) < minutos(c.fin) && minutos(c.inicio) < minutos(f.hora_fin))
+      salida.push({
+        ...c,
+        curso: o.curso,
+        grupo: o.grupo,
+        institucion: o.institucion,
+        otraInstitucion: o.otraInstitucion,
+        franjaOtro: franja ? `${hhmm(franja.hora_inicio)} a ${hhmm(franja.hora_fin)}` : `${c.inicio} a ${c.fin}`,
+      })
+    }
+  }
+  return salida.sort((x, y) => x.desde.localeCompare(y.desde) || x.dia - y.dia)
+}
+
+const fechaCruce = new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+const fc = (f: string) => fechaCruce.format(new Date(`${f}T00:00:00Z`))
+
+/**
+ * «Este docente ya tiene asignado Programación con Python los lunes de 19:00 a
+ * 21:00. Existe un cruce de horario.» + grupo, horas afectadas y periodo.
+ */
+export function mensajeCruce(c: CruceDocente): string {
+  const dia = DIAS_LARGOS[c.dia - 1].toLowerCase()
+  const plural = dia.endsWith("s") ? dia : `${dia}s`
+  if (c.otraInstitucion) {
+    return `Este docente ya tiene una clase en otra institución los ${plural} de ${c.franjaOtro}. Existe un cruce de horario de ${c.inicio} a ${c.fin} (del ${fc(c.desde)} al ${fc(c.hasta)}).`
+  }
+  return `Este docente ya tiene asignado ${c.curso} los ${plural} de ${c.franjaOtro}. Existe un cruce de horario: grupo ${c.grupo}${c.institucion ? ` (${c.institucion})` : ""}, horas afectadas ${c.inicio} a ${c.fin}, del ${fc(c.desde)} al ${fc(c.hasta)}.`
 }
 
 export type EstadoClase = "en_curso" | "proxima" | "terminada"

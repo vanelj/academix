@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { SolicitudAdmin } from "@/lib/solicitudes/datos"
+import { hoyEnLima } from "@/lib/fechas"
 import { cn } from "@/lib/utils"
 import { claveNombre } from "@/lib/validations/categoria"
 
@@ -54,16 +55,15 @@ export function SolicitudesPanel({ solicitudes, grupoInicial }: { solicitudes: S
 
   const visibles = useMemo(() => {
     const clave = claveNombre(busqueda)
-    const d = desde ? new Date(`${desde}T00:00:00`).getTime() : null
-    const h = hasta ? new Date(`${hasta}T23:59:59`).getTime() : null
     return solicitudes.filter((s) => {
-      const t = new Date(s.fecha_solicitud).getTime()
+      // Día del registro en hora de Lima (no en la zona del dispositivo).
+      const t = hoyEnLima(s.fecha_solicitud)
       return (
         (estado === "todos" || estadoVisible(s.estado, s.reservaVencida) === estado) &&
         (curso === TODOS || s.curso?.id === curso) &&
         (grupo === TODOS || s.grupo?.id === grupo) &&
-        (d === null || t >= d) &&
-        (h === null || t <= h) &&
+        (!desde || t >= desde) &&
+        (!hasta || t <= hasta) &&
         (clave === "" || claveNombre(s.estudiante.nombre ?? "").includes(clave))
       )
     })

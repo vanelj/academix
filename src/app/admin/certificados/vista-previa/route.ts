@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export async function GET(request: Request) {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("certificados")
   if (!institucionId) return new Response("No autorizado", { status: 401 })
   const q = new URL(request.url).searchParams
   const plantillaId = q.get("plantilla")

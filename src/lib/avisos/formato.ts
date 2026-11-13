@@ -27,7 +27,7 @@ export function haceCuanto(iso: string, ahora: number = Date.now()): string {
   if (abs < 3600) return rtf.format(Math.round(seg / 60), "minute")
   if (abs < 86400) return rtf.format(Math.round(seg / 3600), "hour")
   if (abs < 86400 * 30) return rtf.format(Math.round(seg / 86400), "day")
-  return new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(new Date(iso))
+  return new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" , timeZone: "America/Lima" }).format(new Date(iso))
 }
 
 /** Texto del contador de la campana (accesible y compacto). */

@@ -35,7 +35,7 @@ export async function publicarEvaluacion(evaluacionId: unknown, publicar: unknow
     const { data: g } = await supabase.from("grupos").select("id").eq("id", ev.grupo_id).eq("docente_id", docente.userId).eq("institucion_id", docente.institucionId).maybeSingle()
     autorizado = Boolean(g)
   } else {
-    autorizado = (await institucionDelAdmin()) === ev.institucion_id
+    autorizado = (await institucionDelAdmin("evaluaciones")) === ev.institucion_id
   }
   if (!autorizado) return { ok: false, mensaje: "No tienes permiso para publicar las notas de este grupo." }
 

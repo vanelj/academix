@@ -9,6 +9,8 @@ export type ShellUser = {
   institutionLogo?: string | null
   /** Roles asignados a la cuenta; con más de uno se ofrece "Cambiar rol". */
   roles?: Role[]
+  /** Solo admin: áreas permitidas (equipo administrativo). Sin definir = todas. */
+  areas?: string[]
 }
 
 /**

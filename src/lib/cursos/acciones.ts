@@ -70,7 +70,7 @@ const CATEGORIA_INVALIDA: Fallo = {
  * pudo perderse con la red).
  */
 export async function crearCurso(datos: unknown, idCliente?: unknown): Promise<ResultadoCurso> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const validacion = cursoSchema.safeParse(datos)
@@ -139,7 +139,7 @@ export async function crearCurso(datos: unknown, idCliente?: unknown): Promise<R
 // ---------------------------------------------------------------------------
 
 export async function editarCurso(id: unknown, datos: unknown): Promise<ResultadoCurso> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCursoSchema.safeParse(id)
@@ -215,7 +215,7 @@ export async function editarCurso(id: unknown, datos: unknown): Promise<Resultad
 // ---------------------------------------------------------------------------
 
 export async function cambiarEstadoCurso(id: unknown, estado: unknown): Promise<ResultadoCurso> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCursoSchema.safeParse(id)
@@ -287,7 +287,7 @@ async function faltantesParaPublicar(
  * se restauran.
  */
 export async function eliminarCurso(id: unknown): Promise<ResultadoCurso> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCursoSchema.safeParse(id)

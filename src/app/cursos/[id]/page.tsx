@@ -17,7 +17,8 @@ import { obtenerContexto } from "@/lib/auth/contexto"
 import { obtenerDetalleCurso } from "@/lib/inscripcion/datos"
 import { estadoEnCurso } from "@/lib/inscripcion/estado-estudiante"
 import { courseFiltersToSearchParams, parseCourseSearchParams } from "@/academix/lib/filters"
-import { cn } from "@/lib/utils"
+import { consultaExplorar } from "@/lib/oferta/explorar"
+import { obtenerGruposOferta } from "@/lib/oferta/grupos"
 import { DIAS_SEMANA, idSchema } from "@/lib/validations/grupo"
 
 const soles = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" })
@@ -35,8 +36,10 @@ export async function generateMetadata({ params }: PageProps<"/cursos/[id]">): P
 export default async function CursoPublicoPage({ params, searchParams }: PageProps<"/cursos/[id]">) {
   const [{ id }, sp] = await Promise.all([params, searchParams])
   if (!idSchema.safeParse(id).success) notFound()
-  const [curso, ctx] = await Promise.all([obtenerDetalleCurso(id), obtenerContexto()])
+  const [curso, ctx, gruposOferta] = await Promise.all([obtenerDetalleCurso(id), obtenerContexto(), obtenerGruposOferta([id]).catch(() => null)])
   if (!curso) notFound()
+  // Grupos ya iniciados: se informan (el curso sigue activo), sin inscripción.
+  const enCurso = (gruposOferta ?? []).filter((g) => g.estado === "en_curso")
 
   const sesion: EstadoSesionInscripcion =
     ctx.estado === "sin_sesion" ? "sin_sesion" : ctx.estado === "sin_perfil" ? "sin_perfil" : ctx.rolActivo === "estudiante" ? "estudiante" : "no_estudiante"
@@ -45,7 +48,11 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
     ? await estadoEnCurso(ctx.userId, curso.id, curso.grupos.map((g) => g.id))
     : null
   // Volver al catálogo con los mismos filtros (?volver=…, reconstruido solo con filtros válidos).
-  const volver = typeof sp.volver === "string" ? courseFiltersToSearchParams(parseCourseSearchParams(Object.fromEntries(new URLSearchParams(sp.volver)))).toString() : ""
+  // Desde el panel del estudiante (?desde=panel) se vuelve a «Explorar cursos» del panel.
+  const desdePanel = sp.desde === "panel" && sesion === "estudiante"
+  const volver = typeof sp.volver === "string"
+    ? (desdePanel ? consultaExplorar(new URLSearchParams(sp.volver)) : courseFiltersToSearchParams(parseCourseSearchParams(Object.fromEntries(new URLSearchParams(sp.volver)))).toString())
+    : ""
   const c = curso.condiciones
   const politicas = curso.politicas
   const categoriaVisual = getCategoryVisual({ slug: "", name: curso.categoria })
@@ -64,10 +71,26 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
     <div className="flex min-h-svh flex-1 flex-col">
       <AxCabecera activa="courses" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <Link href={volver ? `/cursos?${volver}` : "/cursos"} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2.5 mb-4")}>
-          <ArrowLeft aria-hidden />
-          Volver a cursos
-        </Link>
+        <nav aria-label="Navegación" className="-ml-2.5 mb-4 flex flex-wrap items-center gap-1">
+          {desdePanel ? (
+            <>
+              <Link href={volver ? `/estudiante/explorar?${volver}` : "/estudiante/explorar"} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                <ArrowLeft aria-hidden />
+                Volver al catálogo
+              </Link>
+              <Link href="/estudiante/cursos" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mis cursos</Link>
+              <Link href="/estudiante" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mi panel</Link>
+            </>
+          ) : (
+            <>
+              <Link href={volver ? `/cursos?${volver}` : "/cursos"} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                <ArrowLeft aria-hidden />
+                Volver a cursos
+              </Link>
+              {sesion === "estudiante" && <Link href="/estudiante" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mi panel</Link>}
+            </>
+          )}
+        </nav>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
           <div className="space-y-6">
@@ -112,7 +135,7 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
                 </p>
               ) : curso.grupos.length === 0 ? (
                 <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Por ahora no hay grupos programados ni con inscripciones abiertas.
+                  {enCurso.length ? "Sin inscripciones abiertas: los grupos de este curso ya están en curso. Vuelve pronto para el siguiente grupo." : "Por ahora no hay grupos programados ni con inscripciones abiertas."}
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -123,7 +146,13 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
                           <div className="min-w-0 space-y-1.5 text-sm">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium">Grupo {g.codigo}</p>
-                              {g.estado === "abierto" ? <Badge variant="success">Inscripciones abiertas</Badge> : <Badge variant="warning">Próximamente</Badge>}
+                              {g.estado === "abierto" && (g.vacantes_disponibles ?? 1) < 1 ? (
+                                <Badge variant="outline">Sin vacantes</Badge>
+                              ) : g.estado === "abierto" ? (
+                                <Badge variant="success">Inscripciones abiertas</Badge>
+                              ) : (
+                                <Badge variant="warning">Próximamente</Badge>
+                              )}
                             </div>
                             <p className="flex items-center gap-1.5 text-muted-foreground">
                               <CalendarDays className="size-3.5" aria-hidden />
@@ -165,6 +194,17 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
                           )}
                         </CardContent>
                       </Card>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {enCurso.length > 0 && (
+                <ul className="space-y-2" aria-label="Grupos en curso">
+                  {enCurso.map((g) => (
+                    <li key={g.id} className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2 text-sm">
+                      <span className="font-medium">Grupo {g.codigo}</span>
+                      <Badge variant="secondary">En curso</Badge>
+                      <span className="text-muted-foreground">{f(g.fecha_inicio)} – {f(g.fecha_fin)} · ya no admite nuevas matrículas</span>
                     </li>
                   ))}
                 </ul>

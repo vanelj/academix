@@ -41,7 +41,7 @@ async function leerMedio(supabase: Supabase, institucionId: string, medioId: str
 }
 
 export async function subirQrMedio(medioId: unknown, formData: FormData): Promise<ResultadoQr> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return { ok: false, mensaje: SIN_PERMISO }
   const id = z.uuid().safeParse(medioId)
   if (!id.success) return { ok: false, mensaje: "No se pudo identificar el medio de cobro." }
@@ -97,7 +97,7 @@ export async function subirQrMedio(medioId: unknown, formData: FormData): Promis
 
 /** Quita la referencia primero y luego borra la imagen (nunca queda una referencia rota). */
 export async function quitarQrMedio(medioId: unknown): Promise<ResultadoQr> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("pagos")
   if (!institucionId) return { ok: false, mensaje: SIN_PERMISO }
   const id = z.uuid().safeParse(medioId)
   if (!id.success) return { ok: false, mensaje: "No se pudo identificar el medio de cobro." }

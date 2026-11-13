@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { EstadoFinal } from "@/lib/estudiantes/datos"
+import { hoyEnLima } from "@/lib/fechas"
 import type { MatriculaAdmin } from "@/lib/matriculas/datos"
 import { cn } from "@/lib/utils"
 import { claveNombre } from "@/lib/validations/categoria"
@@ -57,17 +58,16 @@ export function MatriculasPanel({ matriculas, grupoInicial }: { matriculas: Matr
 
   const visibles = useMemo(() => {
     const clave = claveNombre(busqueda)
-    const d = desde ? new Date(`${desde}T00:00:00`).getTime() : null
-    const h = hasta ? new Date(`${hasta}T23:59:59`).getTime() : null
     return matriculas.filter((m) => {
-      const t = new Date(m.fecha_matricula).getTime()
+      // Día del registro en hora de Lima (no en la zona del dispositivo).
+      const t = hoyEnLima(m.fecha_matricula)
       return (
         (estado === "todas" || m.estado === estado) &&
         (resultado === TODOS || m.estado_final === resultado) &&
         (curso === TODOS || m.curso?.id === curso) &&
         (grupo === TODOS || m.grupo?.id === grupo) &&
-        (d === null || t >= d) &&
-        (h === null || t <= h) &&
+        (!desde || t >= desde) &&
+        (!hasta || t <= hasta) &&
         (clave === "" || claveNombre(m.estudiante.nombre ?? "").includes(clave))
       )
     })

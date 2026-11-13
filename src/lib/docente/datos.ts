@@ -40,7 +40,7 @@ export type GrupoDocente = {
 
 type FilaGrupo = { id: string; curso_id: string; codigo: string; estado: EstadoGrupo; fecha_inicio: string; fecha_fin: string }
 type FilaMatricula = { id: string; grupo_id: string; estudiante_id: string; estado: EstadoMatricula; estado_final: EstadoFinal }
-type FilaNota = { evaluacion_id: string; matricula_id: string; nota: number; observacion: string | null }
+type FilaNota = { evaluacion_id: string; matricula_id: string; nota: number; observacion: string | null; publicada_en?: string | null }
 
 const ORDEN_ESTADO: Record<EstadoGrupo, number> = { en_curso: 0, abierto: 1, programado: 2, cerrado: 3, cancelado: 4 }
 const nombre = (p: { nombres: string; apellidos: string }) => `${p.nombres} ${p.apellidos}`.trim()
@@ -108,13 +108,19 @@ async function leerDetalle(supabase: Cliente, institucionId: string, grupoIds: s
   const evaluacionesDe = (cols: string) => () =>
     supabase.from("evaluaciones").select(cols).eq("institucion_id", institucionId).in("grupo_id", grupoIds)
       .overrideTypes<(EvaluacionDocente & { grupo_id: string })[], { merge: false }>()
-  const [cursos, { r: horarios }, { r: evaluaciones, nueva: publicacionActiva }, matriculas, notas] = await Promise.all([
+  const [cursos, { r: horarios }, { r: evaluaciones, nueva: publicacionActiva }, matriculas, { filas: notas, porNota: publicacionPorNota }] = await Promise.all([
     supabase.from("cursos").select("id, nombre, nota_aprobatoria, modalidad").eq("institucion_id", institucionId).in("id", cursoIds)
       .overrideTypes<{ id: string; nombre: string; nota_aprobatoria: number; modalidad: string | null }[], { merge: false }>(),
     conRespaldo(horariosDe("id, grupo_id, dia_semana, hora_inicio, hora_fin, enlace_clase, ubicacion"), horariosDe("id, grupo_id, dia_semana, hora_inicio, hora_fin, enlace_clase")),
     conRespaldo(evaluacionesDe("id, grupo_id, nombre, descripcion, peso, fecha, publicada_en"), evaluacionesDe("id, grupo_id, nombre, descripcion, peso, fecha")),
     leerTodo<FilaMatricula>((d, h) => supabase.from("matriculas").select("id, grupo_id, estudiante_id, estado, estado_final").eq("institucion_id", institucionId).in("grupo_id", grupoIds).order("id").range(d, h)),
-    leerTodo<FilaNota & { grupo_id: string }>((d, h) => supabase.from("calificaciones").select("grupo_id, evaluacion_id, matricula_id, nota, observacion").eq("institucion_id", institucionId).in("grupo_id", grupoIds).order("id").range(d, h)),
+    // publicada_en por nota (revision_funcional_v5); sin la columna, se lee como antes.
+    leerTodo<FilaNota & { grupo_id: string }>((d, h) => supabase.from("calificaciones").select("grupo_id, evaluacion_id, matricula_id, nota, observacion, publicada_en").eq("institucion_id", institucionId).in("grupo_id", grupoIds).order("id").range(d, h))
+      .then((filas) => ({ filas, porNota: true }))
+      .catch((e: { code?: string }) =>
+        e?.code === COLUMNA_INEXISTENTE
+          ? leerTodo<FilaNota & { grupo_id: string }>((d, h) => supabase.from("calificaciones").select("grupo_id, evaluacion_id, matricula_id, nota, observacion").eq("institucion_id", institucionId).in("grupo_id", grupoIds).order("id").range(d, h)).then((filas) => ({ filas, porNota: false }))
+          : Promise.reject(e)),
   ])
   for (const [etiqueta, r] of [["cursos", cursos], ["horarios", horarios], ["evaluaciones", evaluaciones]] as const) {
     if (r.error) {
@@ -127,6 +133,7 @@ async function leerDetalle(supabase: Cliente, institucionId: string, grupoIds: s
     horarios: (horarios.data ?? []).map((h) => ({ ...h, hora_inicio: horaCorta(h.hora_inicio), hora_fin: horaCorta(h.hora_fin) })),
     evaluaciones: (evaluaciones.data ?? []).map((e) => ({ ...e, peso: Number(e.peso), publicada_en: publicacionActiva ? (e.publicada_en ?? null) : undefined })),
     publicacionActiva,
+    publicacionPorNota,
     matriculas,
     notas: notas.map((n) => ({ ...n, nota: Number(n.nota) })),
   }
@@ -153,7 +160,8 @@ export type FilaRegistro = {
   estudianteId: string
   nombre: string
   estadoFinal: EstadoFinal
-  notas: Record<string, { nota: number; observacion: string | null }>
+  /** `publicada`: el estudiante ya la ve (nota publicada o evaluación publicada). */
+  notas: Record<string, { nota: number; observacion: string | null; publicada: boolean }>
   calculo: Calculo
   resultadoPropuesto: "aprobado" | "desaprobado" | null
 }
@@ -163,6 +171,8 @@ export type RegistroGrupo = {
   filas: FilaRegistro[]
   /** El docente puede registrar o cambiar notas (grupo no cancelado y con evaluaciones). */
   editable: boolean
+  /** revision_funcional_v5: «Guardar y publicar» por nota, con correcciones auditadas. */
+  publicacionPorNota: boolean
   motivoNoEditable: string | null
 }
 
@@ -182,7 +192,7 @@ export async function obtenerRegistroGrupo(userId: string, institucionId: string
   }
   if (!g) return null
 
-  const { cursos, horarios, evaluaciones, matriculas, notas, publicacionActiva } = await leerDetalle(supabase, institucionId, [g.id], [g.curso_id])
+  const { cursos, horarios, evaluaciones, matriculas, notas, publicacionActiva, publicacionPorNota } = await leerDetalle(supabase, institucionId, [g.id], [g.curso_id])
   const evs = evaluaciones.sort(ordenEval)
   const activas = matriculas.filter((m) => m.estado === "activa")
   const nombres = await nombresEstudiantes(supabase, activas.map((m) => m.estudiante_id))
@@ -198,7 +208,11 @@ export async function obtenerRegistroGrupo(userId: string, institucionId: string
         estudianteId: m.estudiante_id,
         nombre: nombres.get(m.estudiante_id) ?? "Estudiante",
         estadoFinal: m.estado_final,
-        notas: Object.fromEntries(propias.map((n) => [n.evaluacion_id, { nota: n.nota, observacion: n.observacion }])),
+        notas: Object.fromEntries(propias.map((n) => [n.evaluacion_id, {
+          nota: n.nota,
+          observacion: n.observacion,
+          publicada: Boolean(n.publicada_en) || Boolean(evs.find((e) => e.id === n.evaluacion_id)?.publicada_en) || !publicacionActiva,
+        }])),
         calculo,
         resultadoPropuesto: resultadoSegun(calculo.promedio, notaAprobatoria),
       }
@@ -227,7 +241,7 @@ export async function obtenerRegistroGrupo(userId: string, institucionId: string
     g.estado === "cancelado" ? "El grupo fue cancelado: no admite notas."
       : evs.length === 0 ? "La institución aún no configuró las evaluaciones de este grupo."
         : null
-  return { grupo, filas, editable: motivoNoEditable === null, motivoNoEditable }
+  return { grupo, filas, editable: motivoNoEditable === null, motivoNoEditable, publicacionPorNota }
 }
 
 // ---------------------------------------------------------------------------

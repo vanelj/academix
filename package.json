@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs --test \"tests/unidad/*.test.ts\" \"tests/estatico/*.test.ts\"",
-    "test:integracion": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs --test \"tests/integracion/*.test.ts\""
+    "test:integracion": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs --test \"tests/integracion/*.test.ts\"",
+    "correos:plantillas": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs scripts/correos.ts generar",
+    "correos:vista-previa": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs scripts/correos.ts vista-previa",
+    "correos:verificar": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs scripts/correos.ts verificar",
+    "correos:sincronizar": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs scripts/correos.ts sincronizar",
+    "correos:probar": "node --experimental-strip-types --no-warnings --import ./tests/registrar.mjs --test \"tests/unidad/correos*.test.ts\""
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

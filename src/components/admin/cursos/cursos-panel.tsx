@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { BookOpen, CircleCheck, CircleDashed, Eye, Pencil, Plus, Search, X } from "lucide-react"
+import { BookOpen, CircleCheck, CircleDashed, Plus, Search, X } from "lucide-react"
 
 import {
   EstadoCursoBadge,
@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { CursoMenuFila } from "@/components/admin/cursos/curso-menu-fila"
 import type { CursoResumen } from "@/lib/cursos/datos"
 import { cn } from "@/lib/utils"
 import { claveNombre } from "@/lib/validations/categoria"
@@ -95,7 +96,7 @@ export function CursosPanel({ cursos, hayCategoriasActivas }: { cursos: CursoRes
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {valor === "todos" ? "Todos" : ETIQUETA_ESTADO[valor]}{" "}
+                {valor === "todos" ? "Todos" : valor === "desactivado" ? "Archivados" : ETIQUETA_ESTADO[valor]}{" "}
                 <span className="tabular-nums opacity-70">{conteo[valor]}</span>
               </button>
             ))}
@@ -277,25 +278,7 @@ function Miniatura({ curso }: { curso: CursoResumen }) {
 }
 
 function Acciones({ curso }: { curso: CursoResumen }) {
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <Link
-        href={`/admin/cursos/${curso.id}`}
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-        aria-label={`Consultar ${curso.nombre}`}
-      >
-        <Eye aria-hidden />
-      </Link>
-      <Link
-        href={`/admin/cursos/${curso.id}/asistente`}
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-        aria-label={curso.estado === "borrador" ? `Continuar configuración de ${curso.nombre}` : `Editar ${curso.nombre}`}
-        title={curso.estado === "borrador" ? "Continuar configuración" : "Editar con el asistente"}
-      >
-        <Pencil aria-hidden />
-      </Link>
-    </div>
-  )
+  return <CursoMenuFila curso={curso} />
 }
 
 function EstadoVacio({ titulo, texto, accion }: { titulo: string; texto: string; accion?: React.ReactNode }) {

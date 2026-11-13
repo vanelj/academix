@@ -53,7 +53,7 @@ const EN_USO: ResultadoCategoria = {
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 export async function crearCategoria(datos: unknown): Promise<ResultadoCategoria> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const validacion = categoriaSchema.safeParse(datos)
@@ -76,7 +76,7 @@ export async function crearCategoria(datos: unknown): Promise<ResultadoCategoria
 }
 
 export async function editarCategoria(id: unknown, datos: unknown): Promise<ResultadoCategoria> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCategoriaSchema.safeParse(id)
@@ -104,7 +104,7 @@ export async function editarCategoria(id: unknown, datos: unknown): Promise<Resu
 }
 
 export async function cambiarEstadoCategoria(id: unknown, activo: unknown): Promise<ResultadoCategoria> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCategoriaSchema.safeParse(id)
@@ -127,7 +127,7 @@ export async function cambiarEstadoCategoria(id: unknown, activo: unknown): Prom
 }
 
 export async function eliminarCategoria(id: unknown): Promise<ResultadoCategoria> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return SIN_PERMISO
 
   const idValido = idCategoriaSchema.safeParse(id)

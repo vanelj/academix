@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { CalendarRange, Eye, Plus, Search, X } from "lucide-react"
+import { CalendarRange, Plus, Search, X } from "lucide-react"
 
 import { DisponibilidadBadge, EstadoGrupoBadge, ETIQUETA_ESTADO_GRUPO, fechaCorta, resumenHorarios } from "@/components/admin/grupos/grupo-ui"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { GrupoResumen } from "@/lib/grupos/datos"
+import { GrupoMenuFila } from "@/components/admin/grupos/grupo-menu-fila"
 import { cn } from "@/lib/utils"
 import { claveNombre } from "@/lib/validations/categoria"
 import { ESTADOS_GRUPO, type EstadoGrupo } from "@/lib/validations/grupo"
@@ -186,9 +187,7 @@ export function GruposPanel({
                     </TableCell>
                     <TableCell><EstadoGrupoBadge estado={g.estado} /></TableCell>
                     <TableCell className="pr-4">
-                      <Link href={`/admin/grupos/${g.id}`} className={buttonVariants({ variant: "ghost", size: "icon-sm" })} aria-label={`Ver grupo ${g.codigo}`}>
-                        <Eye aria-hidden />
-                      </Link>
+                      <GrupoMenuFila grupo={g} />
                     </TableCell>
                   </TableRow>
                 ))}

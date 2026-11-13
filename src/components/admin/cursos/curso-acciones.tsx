@@ -15,16 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { cambiarEstadoCurso, eliminarCurso, type ResultadoCurso } from "@/lib/cursos/acciones"
+import { DialogoEliminacion } from "@/components/admin/eliminacion-dialogo"
+import { cambiarEstadoCurso, type ResultadoCurso } from "@/lib/cursos/acciones"
 import { notificar } from "@/lib/notificaciones"
 import type { EstadoCurso } from "@/lib/validations/curso"
 
-type Accion = "publicar" | "borrador" | "desactivar" | "eliminar"
+type Accion = "publicar" | "borrador" | "desactivar"
 
+// «desactivado» es el estado ARCHIVADO: fuera del catálogo y sin nuevas
+// solicitudes (la BD exige curso publicado), conservando todo su historial.
 const CONFIRMACION: Record<Exclude<Accion, "publicar">, { titulo: string; boton: string; destructiva: boolean }> = {
   borrador: { titulo: "¿Retirar el curso del catálogo?", boton: "Pasar a borrador", destructiva: false },
-  desactivar: { titulo: "¿Desactivar el curso?", boton: "Desactivar", destructiva: true },
-  eliminar: { titulo: "¿Eliminar el curso?", boton: "Eliminar", destructiva: true },
+  desactivar: { titulo: "¿Archivar el curso?", boton: "Archivar", destructiva: false },
 }
 
 /**
@@ -47,7 +49,8 @@ export function CursoAcciones({
   const router = useRouter()
   const [confirmar, setConfirmar] = useState<Exclude<Accion, "publicar"> | null>(null)
   const [procesando, setProcesando] = useState<Accion | null>(null)
-  const conGrupos = (grupos ?? 0) > 0
+  const [eliminar, setEliminar] = useState(false)
+  void grupos
 
   async function ejecutar(accion: Accion) {
     if (procesando) return
@@ -55,24 +58,21 @@ export function CursoAcciones({
     const textos = {
       publicar: ["Publicando curso…", "Curso publicado", "Ya aparece en el catálogo público."],
       borrador: ["Retirando del catálogo…", "El curso volvió a borrador", "Ya no aparece en el catálogo público."],
-      desactivar: ["Desactivando curso…", "Curso desactivado correctamente", "Ya no aparece en el catálogo público."],
-      eliminar: ["Eliminando curso…", "Curso eliminado", `«${nombre}» se eliminó definitivamente.`],
+      desactivar: ["Archivando curso…", "Curso archivado", "Ya no aparece en el catálogo ni recibe solicitudes. Su historial se conserva."],
     } as const
     const [enCurso, exito, detalle] = textos[accion]
     const operacion = notificar.operacion(enCurso)
     try {
-      let resultado: ResultadoCurso
-      if (accion === "eliminar") resultado = await eliminarCurso(cursoId)
-      else resultado = await cambiarEstadoCurso(cursoId, accion === "publicar" ? "publicado" : accion === "borrador" ? "borrador" : "desactivado")
+      const resultado: ResultadoCurso = await cambiarEstadoCurso(cursoId, accion === "publicar" ? "publicado" : accion === "borrador" ? "borrador" : "desactivado")
 
       if (resultado.ok) {
         operacion.exito(exito, { descripcion: detalle })
         setConfirmar(null)
-        if (accion === "eliminar") router.push("/admin/cursos")
         router.refresh()
+        return true
       } else {
         const avisar = resultado.gravedad === "advertencia" ? operacion.advertencia : operacion.error
-        avisar(accion === "eliminar" ? "No se pudo eliminar el curso" : "No se pudo completar la operación", {
+        avisar("No se pudo completar la operación", {
           descripcion: resultado.mensaje,
         })
         setConfirmar(null)
@@ -110,30 +110,33 @@ export function CursoAcciones({
         {estado === "desactivado" && (
           <Button variant="outline" onClick={() => ejecutar("borrador")} disabled={ocupado}>
             {icono("borrador", ArchiveRestore)}
-            Reactivar como borrador
+            Desarchivar (vuelve a borrador)
           </Button>
         )}
         {estado !== "desactivado" && (
           <Button variant="outline" onClick={() => setConfirmar("desactivar")} disabled={ocupado}>
             {icono("desactivar", EyeOff)}
-            Desactivar
+            Archivar
           </Button>
         )}
-        <Button
-          variant="destructive"
-          onClick={() => setConfirmar("eliminar")}
-          disabled={ocupado || conGrupos}
-          title={conGrupos ? "Tiene grupos asociados: desactívalo en su lugar." : undefined}
-        >
-          {icono("eliminar", Trash2)}
+        {/* Siempre disponible: la ventana revisa qué tiene el curso y ofrece la salida correcta. */}
+        <Button variant="destructive" onClick={() => setEliminar(true)} disabled={ocupado}>
+          <Trash2 aria-hidden />
           Eliminar
         </Button>
       </div>
-      {conGrupos && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          No se puede eliminar porque tiene grupos asociados. Desactívalo para retirarlo de la oferta.
-        </p>
-      )}
+      <DialogoEliminacion
+        objeto="curso"
+        id={cursoId}
+        abierto={eliminar}
+        onCerrar={() => setEliminar(false)}
+        onEliminado={() => { setEliminar(false); router.push("/admin/cursos"); router.refresh() }}
+        alternativas={estado === "desactivado" ? [] : [{
+          etiqueta: "Archivar curso",
+          descripcion: "Deja de mostrarse en el catálogo y no recibe nuevas solicitudes. Se conservan matrículas, pagos, notas, resultados y certificados, y las clases en curso continúan. Podrás desarchivarlo.",
+          ejecutar: async () => (await ejecutar("desactivar")) === true,
+        }]}
+      />
 
       <Dialog open={confirmar !== null} onOpenChange={(abierto) => !abierto && !ocupado && setConfirmar(null)}>
         <DialogContent showCloseButton={false}>
@@ -142,10 +145,8 @@ export function CursoAcciones({
               <DialogHeader>
                 <DialogTitle>{CONFIRMACION[confirmar].titulo}</DialogTitle>
                 <DialogDescription>
-                  {confirmar === "eliminar"
-                    ? `Se eliminará «${nombre}» y sus condiciones de forma permanente. Esta acción no se puede deshacer.`
-                    : confirmar === "desactivar"
-                      ? `«${nombre}» dejará de mostrarse en el catálogo público. Sus datos se conservan y podrás reactivarlo.`
+                  {confirmar === "desactivar"
+                      ? `«${nombre}» dejará de mostrarse en el catálogo y no recibirá nuevas solicitudes. Se conserva todo su historial y las clases en curso continúan. Podrás desarchivarlo.`
                       : `«${nombre}» dejará de mostrarse en el catálogo público hasta que vuelvas a publicarlo.`}
                 </DialogDescription>
               </DialogHeader>

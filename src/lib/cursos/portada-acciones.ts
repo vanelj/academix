@@ -43,7 +43,7 @@ async function cursoConPortada(supabase: Supabase, institucionId: string, cursoI
 }
 
 export async function subirPortadaCurso(cursoId: unknown, formData: FormData): Promise<ResultadoPortada> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return { ok: false, mensaje: SIN_PERMISO }
   const id = idCursoSchema.safeParse(cursoId)
   if (!id.success) return { ok: false, mensaje: "No se pudo identificar el curso." }
@@ -102,7 +102,7 @@ export async function subirPortadaCurso(cursoId: unknown, formData: FormData): P
 
 /** Quita la referencia primero y después borra el archivo (nunca queda una referencia rota). */
 export async function eliminarPortadaCurso(cursoId: unknown): Promise<ResultadoPortada> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("cursos")
   if (!institucionId) return { ok: false, mensaje: SIN_PERMISO }
   const id = idCursoSchema.safeParse(cursoId)
   if (!id.success) return { ok: false, mensaje: "No se pudo identificar el curso." }

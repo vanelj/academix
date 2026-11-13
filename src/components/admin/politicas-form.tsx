@@ -75,7 +75,7 @@ type Estado =
   | { tipo: "error"; mensaje: string }
   | { tipo: "conflicto"; mensaje: string; version: VersionPoliticas }
 
-const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "long", timeStyle: "short" })
+const formatoFecha = new Intl.DateTimeFormat("es-PE", { dateStyle: "long", timeStyle: "short" , timeZone: "America/Lima" })
 
 const lista = new Intl.ListFormat("es", { style: "long", type: "conjunction" })
 

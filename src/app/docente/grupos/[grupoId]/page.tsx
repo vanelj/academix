@@ -6,7 +6,9 @@ import { ArrowLeft, BookCheck, CalendarDays, MapPin, UsersRound, Video } from "l
 import { EstadoGrupoBadge, fechaCorta } from "@/components/admin/grupos/grupo-ui"
 import { AvanceNotas, ErrorCarga } from "@/components/docente/docente-ui"
 import { Pestanas, seccionValida } from "@/components/layout/pestanas"
+import { EditorEnlacesDocente } from "@/components/enlaces/enlaces-ui"
 import { MaterialesCurso } from "@/components/materiales/materiales-curso"
+import { TareasDocente } from "@/components/tareas/tareas-docente"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,13 +16,16 @@ import { requerirPanel } from "@/lib/auth/contexto"
 import { obtenerRegistroGrupo, type RegistroGrupo } from "@/lib/docente/datos"
 import { ETIQUETA_CALCULO } from "@/lib/evaluaciones/calculo"
 import { DIAS_LARGOS, enlaceHttps, rangoHora } from "@/lib/horarios/calendario"
+import { docentesGestionanEnlaces } from "@/lib/enlaces/datos"
 import { leerMateriales, type LecturaMateriales } from "@/lib/materiales/datos"
+import { leerTareasGrupo, type LecturaTareas } from "@/lib/tareas/datos"
+import type { Entrega, Tarea } from "@/lib/tareas/reglas"
 import { cn } from "@/lib/utils"
 import { idSchema } from "@/lib/validations/grupo"
 
 export const metadata: Metadata = { title: "Grupo · Academix" }
 
-const SECCIONES = ["resumen", "estudiantes", "materiales"] as const
+const SECCIONES = ["resumen", "estudiantes", "materiales", "tareas"] as const
 
 /**
  * Espacio del grupo para el docente: todo lo de un grupo en un solo lugar
@@ -35,15 +40,20 @@ export default async function GrupoDocentePage({ params, searchParams }: PagePro
 
   let registro: RegistroGrupo | null
   let materiales: LecturaMateriales = { disponible: false }
+  let tareas: LecturaTareas<{ tareas: Tarea[]; entregas: Entrega[] }> = { disponible: false }
   try {
     registro = await obtenerRegistroGrupo(sesion.userId, sesion.perfil.institucionId, grupoId)
-    if (registro && seccion === "materiales") materiales = await leerMateriales(grupoId)
+    if (registro && (seccion === "materiales" || seccion === "tareas")) materiales = await leerMateriales(grupoId)
+    if (registro && seccion === "tareas") tareas = await leerTareasGrupo(grupoId)
   } catch {
     return <ErrorCarga texto="No se pudo cargar el grupo. Recarga la página en unos minutos." />
   }
   if (!registro) notFound()
   const g = registro.grupo
   const base = `/docente/grupos/${g.id}`
+  const gestionaEnlaces = seccion === "resumen" && g.estado !== "cerrado" && g.estado !== "cancelado" && g.horarios.length > 0
+    ? (await docentesGestionanEnlaces(sesion.perfil.institucionId)) === true
+    : false
 
   return (
     <>
@@ -76,6 +86,7 @@ export default async function GrupoDocentePage({ params, searchParams }: PagePro
           { valor: "resumen", etiqueta: "Resumen", href: base },
           { valor: "estudiantes", etiqueta: "Estudiantes", href: `${base}?seccion=estudiantes`, contador: registro.filas.length },
           { valor: "materiales", etiqueta: "Materiales", href: `${base}?seccion=materiales` },
+          { valor: "tareas", etiqueta: "Tareas", href: `${base}?seccion=tareas` },
         ]}
       />
 
@@ -94,6 +105,7 @@ export default async function GrupoDocentePage({ params, searchParams }: PagePro
                       <li key={h.id} className="flex flex-col gap-1 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="font-medium">{DIAS_LARGOS[h.dia_semana - 1]} · <span className="tabular-nums">{rangoHora(h.hora_inicio, h.hora_fin)}</span></p>
+                          {!enlace && <p className="text-xs text-warning">Enlace pendiente</p>}
                           {h.ubicacion && <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin className="size-3.5" aria-hidden />{h.ubicacion}</p>}
                         </div>
                         {enlace && (
@@ -109,6 +121,17 @@ export default async function GrupoDocentePage({ params, searchParams }: PagePro
               )}
             </CardContent>
           </Card>
+          {gestionaEnlaces && (
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle className="text-base">Enlaces de clase</CardTitle></CardHeader>
+              <CardContent>
+                <EditorEnlacesDocente
+                  grupoId={g.id}
+                  horarios={g.horarios.map((h) => ({ id: h.id, etiqueta: `${DIAS_LARGOS[h.dia_semana - 1]} · ${rangoHora(h.hora_inicio, h.hora_fin)}`, enlace: h.enlace_clase }))}
+                />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader><CardTitle className="text-base">Evaluaciones y notas</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -174,6 +197,25 @@ export default async function GrupoDocentePage({ params, searchParams }: PagePro
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
               Los materiales se habilitarán cuando la institución aplique la actualización «aula_academica_v5».
+            </CardContent>
+          </Card>
+        )
+      )}
+      {seccion === "tareas" && (
+        tareas.disponible ? (
+          <TareasDocente
+            grupoId={g.id}
+            tareas={tareas.datos.tareas}
+            entregas={tareas.datos.entregas}
+            evaluaciones={g.evaluaciones.map((e) => ({ id: e.id, nombre: `${e.nombre} (${e.peso} %)` }))}
+            materiales={materiales.disponible ? materiales.materiales.map((m) => ({ id: m.id, nombre: m.titulo })) : []}
+            estudiantes={Object.fromEntries(registro.filas.map((f) => [f.matriculaId, f.nombre]))}
+            editable={g.estado !== "cancelado" && g.estado !== "cerrado"}
+          />
+        ) : (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              Las tareas se habilitarán cuando la institución aplique la actualización «revision_funcional_v5».
             </CardContent>
           </Card>
         )

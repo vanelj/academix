@@ -16,7 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { cambiarEstadoGrupo, eliminarGrupo } from "@/lib/grupos/acciones"
+import { DialogoEliminacion, type Alternativa } from "@/components/admin/eliminacion-dialogo"
+import { cambiarEstadoGrupo } from "@/lib/grupos/acciones"
 import { notificar } from "@/lib/notificaciones"
 import { TRANSICIONES, type EstadoGrupo } from "@/lib/validations/grupo"
 
@@ -46,28 +47,26 @@ export function GrupoAcciones({
   alEliminar?: () => void
 }) {
   const router = useRouter()
-  const [confirmar, setConfirmar] = useState<EstadoGrupo | "eliminar" | null>(null)
+  const [confirmar, setConfirmar] = useState<EstadoGrupo | null>(null)
+  const [eliminar, setEliminar] = useState(false)
+  void eliminable
+  void codigo
   const [procesando, setProcesando] = useState<string | null>(null)
   const ocupado = procesando !== null
 
-  async function ejecutar(accion: EstadoGrupo | "eliminar") {
-    if (ocupado) return
+  async function ejecutar(accion: EstadoGrupo): Promise<boolean> {
+    if (ocupado) return false
     setProcesando(accion)
-    const op = notificar.operacion(accion === "eliminar" ? "Eliminando grupo…" : "Actualizando el grupo…")
+    const op = notificar.operacion("Actualizando el grupo…")
     try {
-      const r = accion === "eliminar" ? await eliminarGrupo(grupoId) : await cambiarEstadoGrupo(grupoId, accion)
+      const r = await cambiarEstadoGrupo(grupoId, accion)
       if (r.ok) {
         // Abrir sin docente es válido, pero se avisa que deberá asignarse antes de iniciar las clases.
-        if (r.aviso) op.advertencia(ACCION[accion as EstadoGrupo]?.exito ?? "Grupo actualizado", { descripcion: r.aviso })
-        else op.exito(accion === "eliminar" ? "Grupo eliminado" : ACCION[accion].exito, {
-          descripcion: accion === "eliminar" ? `Se eliminó el grupo ${codigo}.` : undefined,
-        })
+        if (r.aviso) op.advertencia(ACCION[accion]?.exito ?? "Grupo actualizado", { descripcion: r.aviso })
+        else op.exito(ACCION[accion].exito)
         setConfirmar(null)
-        if (accion === "eliminar") {
-          if (alEliminar) alEliminar()
-          else router.push("/admin/grupos")
-        }
         router.refresh()
+        return true
       } else {
         const avisar = r.gravedad === "advertencia" ? op.advertencia : op.error
         avisar(accion === "abierto" ? "No es posible abrir inscripciones todavía" : "No se pudo completar la operación", {
@@ -80,7 +79,20 @@ export function GrupoAcciones({
     } finally {
       setProcesando(null)
     }
+    return false
   }
+
+  // Alternativas cuando el grupo tiene historial: Cancelar (no se dictará) y Cerrar (terminó) no son lo mismo.
+  const alternativas: Alternativa[] = (["cancelado", "cerrado"] as const)
+    .filter((d) => TRANSICIONES[estado].includes(d))
+    .map((d) => ({
+      etiqueta: ACCION[d].etiqueta,
+      descripcion: d === "cancelado"
+        ? "Cancelar: el grupo no se dictará y sale del catálogo. Matrículas, pagos y solicitudes se conservan para revisarlos en sus módulos."
+        : "Cerrar: el grupo terminó. Queda como finalizado para registrar resultados y certificados; no puede volver a abrirse.",
+      destructiva: d === "cancelado",
+      ejecutar: () => ejecutar(d),
+    }))
 
   const solicitar = (accion: EstadoGrupo) => (ACCION[accion].confirmar ? setConfirmar(accion) : ejecutar(accion))
 
@@ -106,36 +118,41 @@ export function GrupoAcciones({
             </Button>
           )
         })}
-        <Button
-          variant="destructive"
-          onClick={() => setConfirmar("eliminar")}
-          disabled={ocupado || !eliminable}
-          title={eliminable ? undefined : "Tiene matrículas, solicitudes o evaluaciones: cancélalo o ciérralo en su lugar."}
-        >
-          {procesando === "eliminar" ? <Loader2 className="animate-spin" aria-hidden /> : <Trash2 aria-hidden />}
+        {/* Siempre disponible: la ventana revisa qué tiene el grupo y ofrece la salida correcta. */}
+        <Button variant="destructive" onClick={() => setEliminar(true)} disabled={ocupado}>
+          <Trash2 aria-hidden />
           Eliminar
         </Button>
       </div>
+      <DialogoEliminacion
+        objeto="grupo"
+        id={grupoId}
+        abierto={eliminar}
+        onCerrar={() => setEliminar(false)}
+        onEliminado={() => {
+          setEliminar(false)
+          if (alEliminar) alEliminar()
+          else router.push("/admin/grupos")
+          router.refresh()
+        }}
+        alternativas={alternativas}
+      />
 
       <Dialog open={confirmar !== null} onOpenChange={(v) => !v && !ocupado && setConfirmar(null)}>
         <DialogContent showCloseButton={false}>
           {confirmar && (
             <>
               <DialogHeader>
-                <DialogTitle>
-                  {confirmar === "eliminar" ? "¿Eliminar el grupo?" : `¿${ACCION[confirmar].etiqueta}?`}
-                </DialogTitle>
+                <DialogTitle>{`¿${ACCION[confirmar].etiqueta}?`}</DialogTitle>
                 <DialogDescription>
-                  {confirmar === "eliminar"
-                    ? `Se eliminará el grupo ${codigo} y sus horarios de forma permanente.`
-                    : `${ACCION[confirmar].confirmar} Estado nuevo: ${ETIQUETA_ESTADO_GRUPO[confirmar]}.`}
+                  {`${ACCION[confirmar].confirmar} Estado nuevo: ${ETIQUETA_ESTADO_GRUPO[confirmar]}.`}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <DialogClose render={<Button variant="outline" disabled={ocupado} autoFocus />}>Volver</DialogClose>
                 <Button variant="destructive" onClick={() => ejecutar(confirmar)} disabled={ocupado}>
                   {ocupado && <Loader2 className="animate-spin" aria-hidden />}
-                  {confirmar === "eliminar" ? "Eliminar" : ACCION[confirmar].etiqueta}
+                  {ACCION[confirmar].etiqueta}
                 </Button>
               </DialogFooter>
             </>

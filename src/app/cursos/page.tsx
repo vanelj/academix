@@ -6,6 +6,8 @@ import type { CourseFilters } from "@/academix/types"
 import { AcademixPublico } from "@/components/public/academix-publico"
 import { aCursoAcademix, aFiltrosCatalogo, opcionesCatalogo, ordenarCursos } from "@/lib/oferta/academix"
 import { filtrarCursos, obtenerOfertaCursos } from "@/lib/oferta/cursos"
+import { disponibilidadCurso } from "@/lib/oferta/disponibilidad"
+import { obtenerGruposOferta } from "@/lib/oferta/grupos"
 
 import { CursosCliente } from "./cursos-cliente"
 
@@ -40,7 +42,7 @@ export default async function CursosPage({ searchParams }: PageProps<"/cursos">)
 // La búsqueda es la del catálogo existente (nombre, descripción, categoría e
 // institución, sin distinguir tildes); el orden y los conteos se calculan aquí.
 async function Catalogo({ filtros }: { filtros: CourseFilters }) {
-  const resultado = await obtenerOfertaCursos()
+  const [resultado, grupos] = await Promise.all([obtenerOfertaCursos(), obtenerGruposOferta()])
 
   if (!resultado.ok) {
     return <CursosCliente cursos={[]} estado="error" filtros={filtros} opcionesCategoria={[]} opcionesInstitucion={[]} />
@@ -52,7 +54,7 @@ async function Catalogo({ filtros }: { filtros: CourseFilters }) {
 
   return (
     <CursosCliente
-      cursos={visibles.map(aCursoAcademix)}
+      cursos={visibles.map((c) => aCursoAcademix(c, grupos ? disponibilidadCurso(grupos.filter((g) => g.curso_id === c.id)) : null))}
       estado="ready"
       filtros={filtros}
       opcionesCategoria={categoryOptions}

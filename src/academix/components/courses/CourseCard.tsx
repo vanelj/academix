@@ -54,6 +54,7 @@ export function CourseCard({
             {course.category.name} <span className="whitespace-nowrap font-normal text-ax-muted">· Virtual</span>
           </span>
           {course.isDemo ? <DemoTag /> : null}
+          {course.availability ? <AvailabilityTag availability={course.availability} /> : null}
         </div>
         <H className="font-ax-display text-[21px] font-bold leading-[1.1] tracking-[-0.03em] text-balance">{course.title}</H>
         {!compact && course.description ? (
@@ -86,6 +87,22 @@ export function CourseCard({
         </div>
       </div>
     </article>
+  );
+}
+
+const TONE_CLASSES: Record<NonNullable<CourseSummary['availability']>['tone'], string> = {
+  open: 'bg-ax-soft-mint text-ax-mint-text',
+  soon: 'bg-ax-soft-yellow text-ax-yellow-text',
+  running: 'bg-ax-soft-violet text-ax-violet-text',
+  closed: 'bg-ax-line/60 text-ax-muted',
+};
+
+/** Estado de inscripción del curso (según sus grupos reales). */
+function AvailabilityTag({ availability }: { availability: NonNullable<CourseSummary['availability']> }) {
+  return (
+    <span className={`ml-auto inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-bold ${TONE_CLASSES[availability.tone]}`} title={availability.detail ?? undefined}>
+      {availability.label}
+    </span>
   );
 }
 

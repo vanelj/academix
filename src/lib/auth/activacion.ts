@@ -99,3 +99,18 @@ export function leerFragmentoInvitacion(hash: string): ResultadoFragmento {
   }
   return { tipo: "nada" }
 }
+
+/**
+ * Datos de la invitación que usa la plantilla «Invite user» de Supabase
+ * (docs/correos/supabase/invitacion.html). Los escribe SOLO el servidor en
+ * user_metadata, con valores validados (institución leída de la BD), al crear
+ * la cuenta y antes de cada reenvío. Son solo para el texto del correo: el
+ * rol real lo dan usuario_roles y RLS.
+ */
+export function datosInvitacion(rol: "docente" | "admin", institucion: string | null, nivel?: string | null) {
+  return {
+    invitacion_institucion: (institucion ?? "").slice(0, 120) || null,
+    invitacion_admin: rol === "admin",
+    invitacion_nivel: rol === "admin" ? (nivel ?? "").slice(0, 200) || null : null,
+  }
+}

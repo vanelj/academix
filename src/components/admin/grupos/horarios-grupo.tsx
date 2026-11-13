@@ -1,11 +1,13 @@
 "use client"
 
+import { EnlaceGrupoAdmin } from "@/components/enlaces/enlaces-ui"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Controller, useForm } from "react-hook-form"
+import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { CalendarClock, Link2, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 
+import { AvisoCruceDocente } from "@/components/admin/grupos/aviso-cruce-docente"
 import { nombreDia } from "@/components/admin/grupos/grupo-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,7 +31,9 @@ import { DIAS_SEMANA, HORARIO_INICIAL, horarioSchema, type HorarioValues } from 
 import { useProtegerCambios } from "@/components/layout/proteccion-cambios"
 
 /** Horarios semanales del grupo: listar, agregar, editar y eliminar. */
-export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuardado, ubicacionDisponible = false }: { grupoId: string; horarios: Horario[]; codigoGrupo?: string; onRegistrarGuardado?: RegistrarGuardadorAsistente; ubicacionDisponible?: boolean }) {
+type ContextoDocente = { id: string; fechaInicio: string; fechaFin: string }
+
+export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuardado, ubicacionDisponible = false, docente = null }: { grupoId: string; horarios: Horario[]; codigoGrupo?: string; onRegistrarGuardado?: RegistrarGuardadorAsistente; ubicacionDisponible?: boolean; /** Docente y periodo del grupo: activa el aviso en vivo de cruce. */ docente?: ContextoDocente | null }) {
   const router = useRouter()
   const [editar, setEditar] = useState<Horario | "nuevo" | null>(null)
   const [borrar, setBorrar] = useState<Horario | null>(null)
@@ -54,16 +58,19 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
   }
 
   return (
-    <Card>
+    <Card id="horarios" className="scroll-mt-20">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div className="space-y-1">
           <CardTitle>Horarios</CardTitle>
           <CardDescription>Sesiones semanales del grupo. El enlace de clase solo lo ven el docente y los matriculados.</CardDescription>
         </div>
-        <Button size="sm" onClick={() => setEditar("nuevo")} className="shrink-0">
-          <Plus aria-hidden />
-          Agregar
-        </Button>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          {horarios.length > 1 && <EnlaceGrupoAdmin grupoId={grupoId} />}
+          <Button size="sm" onClick={() => setEditar("nuevo")}>
+            <Plus aria-hidden />
+            Agregar
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {horarios.length === 0 ? (
@@ -81,7 +88,7 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
                   </p>
                   <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                     <Link2 className="size-3 shrink-0" aria-hidden />
-                    {h.enlace_clase ?? "Sin enlace de clase"}
+                    {h.enlace_clase ?? <span className="text-warning">Enlace pendiente</span>}
                   </p>
                   {h.ubicacion && <p className="truncate text-xs text-muted-foreground">Aula o sede: {h.ubicacion}</p>}
                 </div>
@@ -105,6 +112,7 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
         claveGuardado={`horario:${grupoId}`}
         descripcionGuardado={`Horario del grupo ${codigoGrupo ?? grupoId}`}
         ubicacionDisponible={ubicacionDisponible}
+        docente={docente}
       />
 
       <Dialog open={borrar !== null} onOpenChange={(v) => !v && !borrando && setBorrar(null)}>
@@ -128,7 +136,8 @@ export function HorariosGrupo({ grupoId, horarios, codigoGrupo, onRegistrarGuard
   )
 }
 
-function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveGuardado, descripcionGuardado, ubicacionDisponible }: {
+function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveGuardado, descripcionGuardado, ubicacionDisponible, docente }: {
+  docente: ContextoDocente | null
   ubicacionDisponible: boolean
   grupoId: string
   horario: Horario | "nuevo" | null
@@ -156,6 +165,7 @@ function HorarioDialog({ grupoId, horario, onCerrar, onRegistrarGuardado, claveG
             claveGuardado={claveGuardado}
             descripcionGuardado={descripcionGuardado}
             ubicacionDisponible={ubicacionDisponible}
+            docente={docente}
           />
         )}
       </DialogContent>
@@ -173,7 +183,9 @@ function FormularioHorario({
   claveGuardado,
   descripcionGuardado,
   ubicacionDisponible,
+  docente,
 }: {
+  docente: ContextoDocente | null
   ubicacionDisponible: boolean
   grupoId: string
   horario: Horario | null
@@ -195,6 +207,7 @@ function FormularioHorario({
   })
   const { isDirty } = form.formState
   useProtegerCambios(isDirty)
+  const [diaVivo, inicioVivo, finVivo] = useWatch({ control: form.control, name: ["dia_semana", "hora_inicio", "hora_fin"] })
 
   const persistir = useCallback(async (valores: HorarioValues, mostrarAvisos: boolean): Promise<ResultadoGuardadoAsistente> => {
     if (bloqueo.current) return { ok: false, mensaje: "El guardado del horario sigue en curso. Espera a que termine." }
@@ -312,7 +325,7 @@ function FormularioHorario({
             render={({ field }) => (
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="horario-ubicacion">
-                  Aula o sede <span className="font-normal text-muted-foreground">(opcional, clases presenciales)</span>
+                  Aula o sede <span className="font-normal text-muted-foreground">(dato histórico)</span>
                 </FieldLabel>
                 <Input {...field} value={field.value ?? ""} id="horario-ubicacion" maxLength={200} placeholder="Sede Centro, aula 204" />
                 <FieldDescription>Solo la ven el docente y los matriculados.</FieldDescription>
@@ -321,6 +334,17 @@ function FormularioHorario({
           />
         )}
       </fieldset>
+      {docente && Number(diaVivo) >= 1 && /^\d{2}:\d{2}$/.test(inicioVivo ?? "") && /^\d{2}:\d{2}$/.test(finVivo ?? "") && (inicioVivo ?? "") < (finVivo ?? "") && (
+        <div className="mt-4">
+          <AvisoCruceDocente
+            grupoId={grupoId}
+            docenteId={docente.id}
+            fechaInicio={docente.fechaInicio.slice(0, 10)}
+            fechaFin={docente.fechaFin.slice(0, 10)}
+            franjas={[{ dia_semana: Number(diaVivo), hora_inicio: inicioVivo, hora_fin: finVivo }]}
+          />
+        </div>
+      )}
       <DialogFooter className="mt-6">
         <DialogClose render={<Button type="button" variant="outline" disabled={guardando} />}>Cancelar</DialogClose>
         <Button type="submit" disabled={guardando}>

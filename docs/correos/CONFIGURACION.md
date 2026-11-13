@@ -1,4 +1,64 @@
-# Correos de Academix — configuración manual
+# Correos de Academix — configuración
+
+## 0. Puesta en marcha (estado al 12-11-2026)
+
+**Ya hecho por el usuario:** dominio `notificaciones.academix.mundosubs.net.pe` verificado en Resend (DNS correcto), API key de envío creada, SMTP de Supabase Auth con Resend (`smtp.resend.com:465`, usuario `resend`, remitente `no-reply@notificaciones.academix.mundosubs.net.pe`, nombre `Academix`) y prueba real de envío correcta. **No repetir nada de eso.**
+**Ya aplicada en Supabase:** `correos_transaccionales_v5` (cola `correos_salientes`; comprobado sin escribir).
+
+| Canal | Correos | Quién envía |
+|---|---|---|
+| Supabase Auth + SMTP de Resend | Invitación de docentes y de administradores, recuperación de contraseña (y confirmación/cambio de correo si estuvieran activos) | Supabase, con las plantillas de `docs/correos/supabase/` |
+| App (Next.js) + API de Resend | Solicitudes, comprobante recibido, pago aprobado/rechazado, reservas, matrícula confirmada/anulada, cuotas y recordatorios, cambio de horario, resultado final, certificado disponible | `src/lib/correos` desde la cola `correos_salientes` (un correo por evento: clave única + Idempotency-Key) |
+
+Ningún evento sale por los dos canales: las invitaciones solo las envía Supabase.
+
+### Gestión desde VS Code (sin editar el panel de Supabase)
+
+Todo correo se edita en el repositorio:
+
+| Qué | Dónde se edita |
+|---|---|
+| Diseño común (logo, colores, botón, pie) | `src/lib/correos/diseno.ts` |
+| Invitación (docente / administrador), recuperación, confirmación, cambio de correo — HTML y asunto | `src/lib/correos/auth.ts` |
+| Correos de la app (solicitudes, pagos, matrículas, horario, resultado, certificado) | `src/lib/correos/plantillas.ts` |
+
+| Comando | Qué hace |
+|---|---|
+| `npm run correos:plantillas` | Genera `docs/correos/supabase/*.html` y las vistas previas |
+| `npm run correos:vista-previa` | Igual, e indica `docs/correos/vista-previa/index.html` para abrirlas (invitación docente y administrador con datos de ejemplo) |
+| `npm run correos:verificar` | Sintaxis, roles, enlaces seguros y variables (sin mostrar valores). Con token, compara con Supabase **sin cambiar nada** |
+| `npm run correos:sincronizar` | Vista previa: qué plantillas de Supabase cambiarían. **No envía nada** |
+| `npm run correos:sincronizar -- --aplicar` | Guarda un respaldo local (`.correos-respaldo/`, fuera de Git), aplica SOLO las plantillas que difieren y comprueba el resultado |
+| `npm run correos:probar` | Pruebas de correos (Resend y Supabase simulados) |
+
+**Cómo sincroniza:** Supabase Management API oficial (`GET`/`PATCH /v1/projects/{ref}/config/auth`). El PATCH solo puede llevar 8 claves (`mailer_subjects_*` y `mailer_templates_*_content` de invite, recovery, confirmation y email_change): SMTP, confirmación obligatoria, URLs y proveedores no se tocan.
+
+**Credenciales:** archivo `.env.herramientas` en la raíz (ignorado por Git), a partir de `docs/correos/herramientas.env.ejemplo`: `SUPABASE_ACCESS_TOKEN` (token personal de Supabase) y, opcional, `SUPABASE_PROJECT_REF`. No va en Vercel ni en `.env.local`.
+
+**Variables y condiciones en Supabase:** la documentación oficial confirma que `.Data` es `user_metadata`, que se usan plantillas Go con `{{ if }}/{{ else }}` y que el asunto admite variables (su ejemplo usa `{{ .Token }}` en el asunto). Las plantillas solo usan esas construcciones. Que `.Data` funcione también en el ASUNTO no está documentado explícitamente: se confirma con la prueba real controlada. Si fallara, la alternativa es el **Send Email Hook** (Supabase llama a un endpoint de Academix y este envía con Resend y las mismas plantillas); **no** se activa ahora para no tener dos mecanismos que dupliquen correos.
+
+### Pasos pendientes (en este orden)
+1. **Plantillas de Supabase:** crear `.env.herramientas`, ejecutar `npm run correos:sincronizar` (vista previa) y, con tu autorización, `npm run correos:sincronizar -- --aplicar`.
+2. **Vercel → Settings → Environment Variables** (entorno **Production**; en **Preview** solo si quieres probar allí):
+   | Variable | Valor |
+   |---|---|
+   | `RESEND_API_KEY` | la API key de Resend (la misma u otra con permiso de envío). **Solo servidor**: nunca `NEXT_PUBLIC_…` |
+   | `RESEND_FROM_EMAIL` | `Academix <no-reply@notificaciones.academix.mundosubs.net.pe>` |
+   | `CRON_SECRET` | cadena aleatoria ≥ 16 caracteres (`openssl rand -hex 32`) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://academix.mundosubs.net.pe` |
+   | `SUPABASE_SECRET_KEY` | ya existe (la usa el procesador solo para sus RPC) |
+   Tras guardarlas, **volver a desplegar** (las variables solo se cargan en un despliegue nuevo).
+3. **Tarea programada:** `vercel.json` ya define `GET /api/correos/procesar` diario a las 13:00 UTC (08:00 Lima). Vercel la activa en el siguiente despliegue y envía `Authorization: Bearer <CRON_SECRET>`.
+4. **Migración** `docs/migraciones/correos_academicos_v5.sql` (cambio de horario, resultado final y horario en la matrícula). Sin ella, esos dos correos no se encolan; el resto funciona.
+5. **Comprobar:**
+   - Variables cargadas: `curl -i -H "Authorization: Bearer <CRON_SECRET>" https://academix.mundosubs.net.pe/api/correos/procesar` → `200` con `{"estado":"ok",…}`. `{"estado":"sin_configurar"}` = falta `RESEND_API_KEY`/`RESEND_FROM_EMAIL`; `401` = `CRON_SECRET` no coincide.
+   - Cola: `select tipo, estado, intentos, ultimo_error from public.correos_salientes order by creado_en desc limit 20;`
+   - Invitación: invitar a un docente de prueba a **tu propio correo** y comprobar asunto, institución, rol y que el enlace llega a «Bienvenido a Academix — Configura tu contraseña».
+
+---
+
+## Referencia anterior
+
 
 Sitio: `https://academix.mundosubs.net.pe`. Pagos manuales (Yape, Plin, depósito,
 transferencia) con comprobante y verificación del administrador. Sin pasarela.
@@ -79,8 +139,8 @@ volumen esperado.
 
 **Authentication → Emails → Templates:**
 
-- **Reset password**: pegar `plantilla_auth_recuperar.html`. El asunto sugerido está dentro del archivo.
-- **Invite user**: pegar `plantilla_auth_invitacion.html`. Su enlace es
+- **Reset password** e **Invite user**: se gestionan desde el repositorio con `npm run correos:sincronizar` (ver sección 0); no editarlas en el panel.
+- Enlace de la invitación:
   `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`: vuelve a la
   `/auth/activar` que envía la app (local o producción). Mientras no se cambie,
   la plantilla predeterminada (`{{ .ConfirmationURL }}`) también funciona: la
@@ -124,7 +184,7 @@ nada, y las acciones funcionan igual que hoy.
 | Variable | Valor |
 |---|---|
 | `RESEND_API_KEY` | API key de envío de Resend |
-| `CORREO_REMITENTE` | `Academix <notificaciones@<dominio verificado>>` |
+| `RESEND_FROM_EMAIL` (antes `CORREO_REMITENTE`) | `Academix <no-reply@notificaciones.academix.mundosubs.net.pe>` |
 | `CRON_SECRET` | cadena aleatoria de al menos 16 caracteres (p. ej. `openssl rand -hex 32`) |
 | `NEXT_PUBLIC_SITE_URL` | `https://academix.mundosubs.net.pe` |
 | `SUPABASE_SECRET_KEY` | ya existe; el procesador la usa solo para sus 3 RPC exclusivas |

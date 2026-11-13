@@ -1,5 +1,6 @@
 "use server"
 
+import { despacharCorreos } from "@/lib/correos/despachar"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
@@ -42,7 +43,7 @@ function revalidar(grupoId: string) {
 }
 
 export async function guardarEvaluacion(grupoId: unknown, evaluacionId: unknown, datos: unknown): Promise<ResultadoEvaluacion> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("evaluaciones")
   if (!institucionId) return SIN_PERMISO
   const g = uuid.safeParse(grupoId)
   const e = evaluacionId === null ? null : uuid.safeParse(evaluacionId)
@@ -82,7 +83,7 @@ export async function guardarEvaluacion(grupoId: unknown, evaluacionId: unknown,
 }
 
 export async function eliminarEvaluacion(grupoId: unknown, evaluacionId: unknown): Promise<ResultadoEvaluacion> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("evaluaciones")
   if (!institucionId) return SIN_PERMISO
   const g = uuid.safeParse(grupoId), e = uuid.safeParse(evaluacionId)
   if (!g.success || !e.success) return NO_ENCONTRADO
@@ -98,7 +99,7 @@ export async function eliminarEvaluacion(grupoId: unknown, evaluacionId: unknown
 
 /** Registra el resultado CALCULADO por la BD de una matrícula. */
 export async function registrarResultado(grupoId: unknown, matriculaId: unknown): Promise<ResultadoEvaluacion> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("evaluaciones")
   if (!institucionId) return SIN_PERMISO
   const g = uuid.safeParse(grupoId), m = uuid.safeParse(matriculaId)
   if (!g.success || !m.success) return NO_ENCONTRADO
@@ -109,12 +110,13 @@ export async function registrarResultado(grupoId: unknown, matriculaId: unknown)
   if (error) return fallo(error)
   revalidar(g.data)
   revalidatePath(`/admin/matriculas/${m.data}`)
+  despacharCorreos() // «resultado final disponible»
   return { ok: true, resultado: typeof data === "string" ? data : undefined }
 }
 
 /** Registra los resultados de todas las matrículas activas y completas del grupo (una RPC por matrícula). */
 export async function registrarResultadosGrupo(grupoId: unknown): Promise<ResultadoEvaluacion> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("evaluaciones")
   if (!institucionId) return SIN_PERMISO
   const g = uuid.safeParse(grupoId)
   if (!g.success) return NO_ENCONTRADO
@@ -131,11 +133,12 @@ export async function registrarResultadosGrupo(grupoId: unknown): Promise<Result
     } else procesadas++
   }
   revalidar(g.data)
+  despacharCorreos()
   return { ok: true, procesadas, omitidas }
 }
 
 export async function reabrirResultado(grupoId: unknown, matriculaId: unknown, motivo: unknown): Promise<ResultadoEvaluacion> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("evaluaciones")
   if (!institucionId) return SIN_PERMISO
   const g = uuid.safeParse(grupoId), m = uuid.safeParse(matriculaId)
   if (!g.success || !m.success) return NO_ENCONTRADO

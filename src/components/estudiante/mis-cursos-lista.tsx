@@ -21,7 +21,7 @@ import { rangoHora } from "@/lib/horarios/calendario"
 import { cn } from "@/lib/utils"
 
 const fechaCorta = new Intl.DateTimeFormat("es-PE", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
-const MODALIDAD: Record<string, string> = { virtual: "Virtual", presencial: "Presencial", mixta: "Mixta" }
+const MODALIDAD: Record<string, string> = { virtual: "Virtual" }
 const VARIANTE: Record<EstadoAcademico, "success" | "warning" | "outline" | "secondary" | "destructive"> = {
   en_curso: "success",
   por_iniciar: "secondary",

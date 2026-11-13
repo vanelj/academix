@@ -7,18 +7,18 @@ import { AlertTriangle, Building2, CalendarDays, ChevronLeft, ChevronRight, Cloc
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MallaSemanal } from "@/components/horarios/malla-semanal"
 import {
   ahoraAcademico,
   clasesEnRango,
   colorCurso,
   DIAS_CORTOS,
-  DIAS_LARGOS,
-  diaSemana,
   estadoClase,
   ETIQUETA_MODALIDAD,
   finMes,
   inicioMes,
   inicioSemana,
+  nombreCortoCurso,
   puedeUnirseAhora,
   puntoCurso,
   rangoHora,
@@ -38,6 +38,8 @@ const fechaCorta = new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "sh
 const mesAnio = new Intl.DateTimeFormat("es-PE", { month: "long", year: "numeric", timeZone: "UTC" })
 const d = (f: string) => new Date(`${f}T00:00:00Z`)
 const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+/** Clases que se escriben dentro de una celda del mes; el resto, «+N clases». */
+const MAX_EN_CELDA = 2
 
 /**
  * Calendario académico compartido (Estudiante y Docente). Semana (predeterminada),
@@ -160,25 +162,17 @@ export function CalendarioAcademico({
       )}
 
       {vista === "semana" && (
-        <ol className="grid gap-3 md:grid-cols-7">
-          {Array.from({ length: 7 }, (_, i) => sumarDias(rango.desde, i)).map((f) => {
-            const delDia = porFecha.get(f) ?? []
-            const hoy = f === ahora.fecha
-            return (
-              <li key={f} className={cn("min-w-0 rounded-xl border p-2", hoy && "border-primary ring-1 ring-primary/40", !delDia.length && "max-md:hidden")}>
-                <p className={cn("mb-2 flex items-baseline justify-between gap-1 text-xs font-medium", hoy ? "text-primary" : "text-muted-foreground")}>
-                  <span>
-                    <span className="md:hidden">{DIAS_LARGOS[diaSemana(f) - 1]}</span>
-                    <span className="max-md:hidden">{DIAS_CORTOS[diaSemana(f) - 1]}</span> {Number(f.slice(8))}
-                  </span>
-                  {hoy && <span>Hoy</span>}
-                </p>
-                {delDia.length ? <ul className="space-y-2">{delDia.map(tarjeta)}</ul> : <p className="py-2 text-center text-xs text-muted-foreground/70">—</p>}
-              </li>
-            )
-          })}
-          {clases.length === 0 && <li className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground md:col-span-7">No hay clases programadas esta semana.</li>}
-        </ol>
+        <>
+          <MallaSemanal
+            dias={Array.from({ length: 7 }, (_, k) => sumarDias(rango.desde, k))}
+            clases={clases}
+            ahora={ahora}
+            mostrarInstitucion={mostrarInstitucion}
+            mostrarDocente={mostrarDocente}
+            onAbrir={setSeleccion}
+          />
+          {clases.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No hay clases programadas esta semana.</p>}
+        </>
       )}
 
       {vista === "mes" && (
@@ -198,22 +192,36 @@ export function CalendarioAcademico({
                   type="button"
                   role="gridcell"
                   aria-selected={elegido}
-                  aria-label={`${capital(fechaLarga.format(d(f)))}: ${delDia.length ? `${delDia.length} ${delDia.length === 1 ? "clase" : "clases"}` : "sin clases"}`}
+                  aria-label={`${capital(fechaLarga.format(d(f)))}: ${delDia.length ? delDia.map((c) => `${c.grupo.curso} a las ${c.hora_inicio}`).join(", ") : "sin clases"}`}
                   onClick={() => setDiaElegido(elegido ? null : f)}
                   className={cn(
-                    "flex min-h-14 flex-col items-center gap-1 rounded-lg border p-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-20",
+                    "flex min-h-14 min-w-0 flex-col items-center gap-1 rounded-lg border p-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-24 sm:items-stretch",
                     !delMes && "opacity-40",
                     delDia.length > 0 && "bg-primary/5 font-medium",
                     hoy && "border-primary text-primary",
                     elegido && "ring-2 ring-primary"
                   )}
                 >
-                  <span className="tabular-nums">{Number(f.slice(8))}</span>
-                  <span className="flex flex-wrap justify-center gap-0.5">
+                  <span className="flex w-full items-center justify-between gap-1 px-0.5">
+                    <span className="tabular-nums">{Number(f.slice(8))}</span>
+                    {delDia.some((c) => c.cruce) && <AlertTriangle className="size-3 text-warning" aria-label="Cruce de horario" />}
+                  </span>
+                  {/* Móvil: puntos (no caben nombres). Desde sm: «Python · 19:00» y «+N clases». */}
+                  <span className="flex flex-wrap justify-center gap-0.5 sm:hidden">
                     {delDia.slice(0, 4).map((c) => <span key={c.id} className={cn("size-1.5 rounded-full", puntoCurso(c.indice))} />)}
                     {delDia.length > 4 && <span className="text-[10px] leading-none">+{delDia.length - 4}</span>}
                   </span>
-                  {delDia.some((c) => c.cruce) && <AlertTriangle className="size-3 text-warning" aria-hidden />}
+                  <span className="hidden w-full min-w-0 flex-col gap-0.5 sm:flex">
+                    {delDia.slice(0, MAX_EN_CELDA).map((c) => (
+                      <span key={c.id} className={cn("flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] leading-tight font-normal", colorCurso(c.indice))}>
+                        <span className={cn("size-1.5 shrink-0 rounded-full", puntoCurso(c.indice))} aria-hidden />
+                        <span className="truncate text-foreground">{nombreCortoCurso(c.grupo.curso)} · {c.hora_inicio}</span>
+                      </span>
+                    ))}
+                    {delDia.length > MAX_EN_CELDA && (
+                      <span className="px-1 text-left text-[11px] font-medium text-primary">+{delDia.length - MAX_EN_CELDA} {delDia.length - MAX_EN_CELDA === 1 ? "clase" : "clases"}</span>
+                    )}
+                  </span>
                 </button>
               )
             })}
@@ -300,7 +308,11 @@ function DetalleClase({ clase: c, ahora, mostrarInstitucion, mostrarDocente }: {
         <li className="flex items-start gap-2"><Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{rangoHora(c.hora_inicio, c.hora_fin)}{estado === "en_curso" && <Badge variant="success">En curso</Badge>}</li>
         {mostrarInstitucion && c.grupo.institucion && <li className="flex items-start gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{c.grupo.institucion}</li>}
         {mostrarDocente && <li className="flex items-start gap-2"><UserRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{c.grupo.docente ?? "Docente por asignar"}</li>}
-        {c.modalidad && <li className="flex items-start gap-2"><MonitorPlay className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{ETIQUETA_MODALIDAD[c.modalidad]}</li>}
+        <li className="flex items-start gap-2">
+          <MonitorPlay className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {c.enlace ? "Clase virtual" : <span className="text-muted-foreground">Clase virtual · Enlace pendiente</span>}
+          {c.modalidad === "presencial" || c.modalidad === "virtual_presencial" ? ` (${ETIQUETA_MODALIDAD[c.modalidad]})` : ""}
+        </li>
         {c.ubicacion && <li className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{c.ubicacion}</li>}
         {c.cruce && <li className="flex items-start gap-2 text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />Se cruza con otra clase a la misma hora.</li>}
       </ul>

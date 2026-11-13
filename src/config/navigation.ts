@@ -4,6 +4,7 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
+  CalendarDays,
   CalendarRange,
   ClipboardCheck,
   ClipboardPen,
@@ -16,6 +17,7 @@ import {
   Receipt,
   ScrollText,
   Tags,
+  ShieldCheck,
   Users,
   UsersRound,
   type LucideIcon,
@@ -91,6 +93,13 @@ export const roleConfig: Record<Role, RoleConfig> = {
             description: "Abre grupos, asigna docentes y define sus horarios.",
             disponible: true,
           },
+          {
+            title: "Calendario académico",
+            href: "/admin/calendario",
+            icon: CalendarDays,
+            description: "Malla semanal de todos los grupos de la institución.",
+            disponible: true,
+          },
         ],
       },
       {
@@ -160,6 +169,13 @@ export const roleConfig: Record<Role, RoleConfig> = {
             href: "/admin/politicas",
             icon: ScrollText,
             description: "Define los textos de matrícula, reservas, pagos y devoluciones.",
+            disponible: true,
+          },
+          {
+            title: "Equipo administrativo",
+            href: "/admin/equipo",
+            icon: ShieldCheck,
+            description: "Administradores de la institución y sus permisos.",
             disponible: true,
           },
         ],
@@ -245,11 +261,12 @@ export const roleConfig: Record<Role, RoleConfig> = {
             disponible: true,
           },
           {
-            // Catálogo público: fuera del panel, con la oferta de todas las instituciones.
+            // Catálogo dentro del panel (no sale de la sesión); el público sigue en /cursos.
             title: "Explorar cursos",
-            href: "/cursos",
+            href: "/estudiante/explorar",
             icon: Compass,
             description: "Descubre la oferta de cursos de las instituciones.",
+            disponible: true,
           },
           {
             title: "Mis horarios",

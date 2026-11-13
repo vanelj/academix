@@ -4,18 +4,18 @@ import type { EstadoCurso, TipoCobro } from "@/lib/validations/curso"
 /** Elementos de presentación compartidos por el listado, el detalle y el formulario de cursos. */
 
 export const formatoSoles = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" })
-export const formatoFechaCurso = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" })
+export const formatoFechaCurso = new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" , timeZone: "America/Lima" })
 
 export const ETIQUETA_ESTADO: Record<EstadoCurso, string> = {
   borrador: "Borrador",
   publicado: "Publicado",
-  desactivado: "Desactivado",
+  desactivado: "Archivado",
 }
 
 export const DESCRIPCION_ESTADO: Record<EstadoCurso, string> = {
   borrador: "En preparación: no aparece en el catálogo público.",
   publicado: "Visible en el catálogo público (si su categoría y la institución están activas).",
-  desactivado: "Retirado de la oferta: no aparece en el catálogo público.",
+  desactivado: "Archivado: fuera del catálogo y sin nuevas solicitudes. Conserva todo su historial.",
 }
 
 export const ETIQUETA_COBRO: Record<TipoCobro, string> = {

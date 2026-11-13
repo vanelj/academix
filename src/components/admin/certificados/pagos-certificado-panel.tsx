@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, Loader2, Lock, Receipt, XCircle } from "lucide-react"
 
-import { formatoFechaCert } from "@/components/admin/certificados/certificado-ui"
 import { ComprobanteVisor } from "@/components/admin/pagos/comprobante-visor"
 import { EstadoPagoBadge } from "@/components/admin/pagos/pago-ui"
 import { formatoSolesSolicitud as s } from "@/components/solicitudes/solicitud-ui"
@@ -22,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { enlaceComprobanteCertificado, revisarPagoCertificado } from "@/lib/certificados/acciones"
 import type { PagoCertificado } from "@/lib/certificados/datos"
+import { fechaHoraLimaTexto } from "@/lib/fechas"
 import { notificar } from "@/lib/notificaciones"
 
 /** Pagos de certificados con costo adicional: revisión manual, sin pasarela. */
@@ -75,7 +75,7 @@ export function PagosCertificadoPanel({ pagos, habilitada, motivo }: { pagos: Pa
                     </div>
                     <p className="text-muted-foreground">Certificado · {p.matricula?.curso?.nombre ?? "Curso"} · Grupo {p.matricula?.grupo?.codigo ?? "—"}</p>
                     <p className="text-muted-foreground">
-                      {s.format(p.monto)} (importe {s.format(p.importe)}) · {p.metodo} · Op. {p.referencia} · {formatoFechaCert.format(new Date(p.fecha_pago))}
+                      {s.format(p.monto)} (importe {s.format(p.importe)}) · {p.metodo} · Op. {p.referencia} · {fechaHoraLimaTexto(p.fecha_pago)}
                     </p>
                     {p.observacion && <p className="text-muted-foreground">Observación: {p.observacion}</p>}
                     <ComprobanteVisor pagoId={p.id} obtenerEnlace={enlaceComprobanteCertificado} />

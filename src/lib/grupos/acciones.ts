@@ -1,8 +1,12 @@
 "use server"
 
+import { despacharCorreos } from "@/lib/correos/despachar"
 import { revalidatePath } from "next/cache"
 
 import { institucionDelAdmin } from "@/lib/auth/contexto"
+import { buscarCrucesDocente } from "@/lib/grupos/cruces"
+import { mensajeCruce } from "@/lib/horarios/calendario"
+import { programar, type CriterioDuracion } from "@/lib/horarios/programacion"
 import { esErrorDeRed } from "@/lib/registro/errores"
 import { createClient } from "@/lib/supabase/server"
 import {
@@ -44,7 +48,6 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 const SIN_PERMISO: Fallo = { ok: false, gravedad: "error", mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
 const NO_ENCONTRADO: Fallo = { ok: false, gravedad: "error", mensaje: "El grupo no existe o no pertenece a tu institución. Recarga la página." }
 const DATOS_INVALIDOS: Fallo = { ok: false, gravedad: "error", mensaje: "Revisa los datos del grupo." }
-const VIGENTES: EstadoGrupo[] = ["programado", "abierto", "en_curso"]
 
 // ---------------------------------------------------------------------------
 // Grupos
@@ -52,7 +55,7 @@ const VIGENTES: EstadoGrupo[] = ["programado", "abierto", "en_curso"]
 
 /** `idCliente` (opcional): como en crearCurso, un reintento con el mismo id no duplica el grupo. */
 export async function crearGrupo(datos: unknown, idCliente?: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const v = grupoSchema.safeParse(datos)
   const idPropio = idCliente === undefined ? { success: true as const, data: undefined } : idSchema.safeParse(idCliente)
@@ -101,7 +104,7 @@ export async function crearGrupo(datos: unknown, idCliente?: unknown): Promise<R
 }
 
 export async function editarGrupo(id: unknown, datos: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const idValido = idSchema.safeParse(id)
   const v = grupoSchema.safeParse(datos)
@@ -128,6 +131,15 @@ export async function editarGrupo(id: unknown, datos: unknown): Promise<Resultad
   const cambios: Record<string, unknown> = grupoParaGuardar(v.data) // el curso no se cambia tras crear el grupo
   if (nuevoDocente !== actual.docente_id) cambios.docente_id = nuevoDocente
 
+  // Cruce REAL del docente (otro grupo, mismas fechas y horas): se bloquea ANTES
+  // de guardar si cambia el docente o el periodo. Editar otros datos de un grupo
+  // que ya tuviera un cruce no se bloquea.
+  const guardado = grupoParaGuardar(v.data)
+  if (nuevoDocente && (nuevoDocente !== actual.docente_id || guardado.fecha_inicio !== actual.fecha_inicio || guardado.fecha_fin !== actual.fecha_fin)) {
+    const bloqueo = await bloqueoPorCruce(supabase, institucionId, nuevoDocente, grupoId, { desde: guardado.fecha_inicio, hasta: guardado.fecha_fin }, null)
+    if (bloqueo) return { ...bloqueo, campo: nuevoDocente !== actual.docente_id ? "docente_id" : "fecha_inicio" }
+  }
+
   const { data, error } = await supabase
     .from("grupos")
     .update(cambios)
@@ -139,14 +151,7 @@ export async function editarGrupo(id: unknown, datos: unknown): Promise<Resultad
 
   let aviso: string | undefined
   if ("docente_id" in cambios) {
-    if (nuevoDocente) {
-      const { data: franjas } = await supabase
-        .from("horarios")
-        .select("dia_semana, hora_inicio, hora_fin")
-        .eq("grupo_id", grupoId)
-        .eq("institucion_id", institucionId)
-      aviso = await cruceDelDocente(supabase, institucionId, nuevoDocente, { id: grupoId, ...grupoParaGuardar(v.data) }, franjas ?? [])
-    } else if (actual.estado === "en_curso") {
+    if (!nuevoDocente && actual.estado === "en_curso") {
       aviso = "El grupo quedó sin docente con las clases en curso. Asigna uno lo antes posible."
     } else if (actual.estado === "abierto") {
       aviso = "El grupo sigue recibiendo inscripciones con «Docente por asignar». Asigna uno antes de iniciar las clases."
@@ -165,7 +170,7 @@ export async function editarGrupo(id: unknown, datos: unknown): Promise<Resultad
  * institución, esté activo y tenga el rol docente habilitado.
  */
 export async function asignarDocente(grupoId: unknown, docenteId: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const g = idSchema.safeParse(grupoId)
   const d = docenteId === null ? { success: true as const, data: null } : idSchema.safeParse(docenteId)
@@ -191,6 +196,11 @@ export async function asignarDocente(grupoId: unknown, docenteId: unknown): Prom
     }
   }
 
+  if (d.data) {
+    const bloqueo = await bloqueoPorCruce(supabase, institucionId, d.data, g.data, { desde: actual.fecha_inicio, hasta: actual.fecha_fin }, null)
+    if (bloqueo) return bloqueo
+  }
+
   const { data, error } = await supabase
     .from("grupos")
     .update({ docente_id: d.data })
@@ -201,10 +211,7 @@ export async function asignarDocente(grupoId: unknown, docenteId: unknown): Prom
   if (!data?.length) return NO_ENCONTRADO
 
   let aviso: string | undefined
-  if (d.data) {
-    const { data: franjas } = await supabase.from("horarios").select("dia_semana, hora_inicio, hora_fin").eq("grupo_id", g.data).eq("institucion_id", institucionId)
-    aviso = await cruceDelDocente(supabase, institucionId, d.data, { id: g.data, fecha_inicio: actual.fecha_inicio, fecha_fin: actual.fecha_fin }, franjas ?? [])
-  } else if (actual.estado === "en_curso") {
+  if (!d.data && actual.estado === "en_curso") {
     aviso = "El grupo quedó sin docente con las clases en curso. Asigna uno lo antes posible."
   }
   revalidarGrupos(g.data)
@@ -213,8 +220,54 @@ export async function asignarDocente(grupoId: unknown, docenteId: unknown): Prom
   return { ok: true, id: g.data, aviso }
 }
 
+/**
+ * Programación automática: con los horarios YA guardados del grupo, la fecha de
+ * inicio y UN criterio de duración, el servidor recalcula (no confía en el
+ * navegador) y actualiza solo fecha_inicio y fecha_fin. Las sesiones no se
+ * guardan: se derivan de horarios + fechas, así que repetir no duplica nada.
+ */
+export async function aplicarProgramacion(grupoId: unknown, datos: unknown): Promise<ResultadoGrupo & { sesiones?: number; horas?: number }> {
+  const institucionId = await institucionDelAdmin("docentes")
+  if (!institucionId) return SIN_PERMISO
+  const g = idSchema.safeParse(grupoId)
+  const d = datos as { fechaInicio?: unknown; criterio?: { tipo?: unknown; valor?: unknown } } | null
+  const tipo = d?.criterio?.tipo
+  const valor = Number(d?.criterio?.valor)
+  if (!g.success || typeof d?.fechaInicio !== "string" || (tipo !== "semanas" && tipo !== "sesiones" && tipo !== "horas")) return DATOS_INVALIDOS
+
+  const supabase = await createClient()
+  const actual = await grupoDeInstitucion(supabase, institucionId, g.data)
+  if (actual === "error") return falloBD({ message: "lectura del grupo" })
+  if (!actual) return NO_ENCONTRADO
+  if (actual.estado === "cerrado" || actual.estado === "cancelado") {
+    return { ok: false, gravedad: "advertencia", mensaje: "El grupo está cerrado o cancelado: su programación ya no se cambia." }
+  }
+  if (actual.estado === "en_curso" && d.fechaInicio !== actual.fecha_inicio) {
+    return { ok: false, gravedad: "advertencia", campo: "fecha_inicio", mensaje: "Las clases ya empezaron: no se puede cambiar la fecha de inicio, solo la duración." }
+  }
+  const { data: franjas, error } = await supabase.from("horarios").select("dia_semana, hora_inicio, hora_fin").eq("grupo_id", g.data).eq("institucion_id", institucionId)
+  if (error) return falloBD(error)
+  const r = programar(d.fechaInicio, (franjas ?? []).map((f) => ({ dia_semana: f.dia_semana, hora_inicio: horaCorta(f.hora_inicio), hora_fin: horaCorta(f.hora_fin) })), { tipo, valor } as CriterioDuracion)
+  if (!r.ok) return { ok: false, gravedad: "advertencia", mensaje: r.errores.join(" ") }
+  if (actual.docente_id) {
+    const bloqueo = await bloqueoPorCruce(supabase, institucionId, actual.docente_id, g.data, { desde: r.programacion.fechaInicio, hasta: r.programacion.fechaFin }, null)
+    if (bloqueo) return bloqueo
+  }
+
+  const { data, error: errorFechas } = await supabase
+    .from("grupos")
+    .update({ fecha_inicio: r.programacion.fechaInicio, fecha_fin: r.programacion.fechaFin })
+    .eq("id", g.data)
+    .eq("institucion_id", institucionId)
+    .select("id")
+  if (errorFechas) return falloBD(errorFechas)
+  if (!data?.length) return NO_ENCONTRADO
+  revalidarGrupos(g.data)
+  return { ok: true, id: g.data, sesiones: r.programacion.totalSesiones, horas: r.programacion.horasReloj }
+}
+
 export async function cambiarEstadoGrupo(id: unknown, estado: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const idValido = idSchema.safeParse(id)
   if (!idValido.success || !ESTADOS_GRUPO.includes(estado as EstadoGrupo)) {
@@ -309,7 +362,7 @@ async function faltantes(
 
 /** Solo sin matrículas, solicitudes ni evaluaciones. Sus horarios se borran en cascada. */
 export async function eliminarGrupo(id: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const idValido = idSchema.safeParse(id)
   if (!idValido.success) return { ok: false, gravedad: "error", mensaje: "No se pudo completar la operación." }
@@ -346,7 +399,7 @@ export async function eliminarGrupo(id: unknown): Promise<ResultadoGrupo> {
  * intento anterior ya creó ese horario, se actualiza en lugar de duplicarlo.
  */
 export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos: unknown, idCliente?: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const g = idSchema.safeParse(grupoId)
   const h = horarioId === null ? { success: true as const, data: null } : idSchema.safeParse(horarioId)
@@ -379,6 +432,10 @@ export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos
   if (choque) {
     return { ok: false, gravedad: "advertencia", campo: "hora_inicio", mensaje: "Se cruza con otro horario de este mismo grupo." }
   }
+  if (grupo.docente_id) {
+    const bloqueo = await bloqueoPorCruce(supabase, institucionId, grupo.docente_id, g.data, { desde: grupo.fecha_inicio, hasta: grupo.fecha_fin }, [fila])
+    if (bloqueo) return { ...bloqueo, campo: "hora_inicio" }
+  }
 
   const consulta = horarioDestino
     ? supabase.from("horarios").update(fila).eq("id", horarioDestino).eq("grupo_id", g.data).eq("institucion_id", institucionId).select("id")
@@ -387,13 +444,13 @@ export async function guardarHorario(grupoId: unknown, horarioId: unknown, datos
   if (error) return falloBD(error)
   if (!data?.length) return NO_ENCONTRADO
 
-  const aviso = await cruceDelDocente(supabase, institucionId, grupo.docente_id, grupo, [fila])
   revalidarGrupos(g.data)
-  return { ok: true, id: data[0].id as string, aviso }
+  despacharCorreos() // aviso de cambio de horario (correos_academicos_v5)
+  return { ok: true, id: data[0].id as string }
 }
 
 export async function eliminarHorario(grupoId: unknown, horarioId: unknown): Promise<ResultadoGrupo> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("docentes")
   if (!institucionId) return SIN_PERMISO
   const g = idSchema.safeParse(grupoId)
   const h = idSchema.safeParse(horarioId)
@@ -411,45 +468,73 @@ export async function eliminarHorario(grupoId: unknown, horarioId: unknown): Pro
   if (!data?.length) return { ok: false, gravedad: "error", mensaje: "El horario ya no existe. Recarga la página." }
 
   revalidarGrupos(g.data)
+  despacharCorreos()
   return { ok: true, id: h.data }
 }
 
 /**
- * ADVERTENCIA (no lo prohíbe la BD): el docente ya dicta en otro grupo vigente,
- * con fechas que se superponen, en alguna de estas franjas.
+ * Un docente no puede dictar dos clases a la vez: si la programación propuesta
+ * coincide en FECHAS REALES, día y horas con otro grupo vigente del docente, la
+ * operación se rechaza con una explicación (curso, grupo, día, horas, periodo).
+ * `franjas` = horarios propuestos; null = los ya guardados del grupo.
  */
-async function cruceDelDocente(
+async function bloqueoPorCruce(
   supabase: Supabase,
   institucionId: string,
-  docenteId: string | null,
-  grupo: { id: string; fecha_inicio: string; fecha_fin: string },
-  franjas: { dia_semana: number; hora_inicio: string; hora_fin: string }[]
-): Promise<string | undefined> {
-  if (!docenteId || franjas.length === 0) return undefined
-  const { data: otros } = await supabase
-    .from("grupos")
-    .select("id, codigo, fecha_inicio, fecha_fin, estado")
-    .eq("institucion_id", institucionId)
-    .eq("docente_id", docenteId)
-    .neq("id", grupo.id)
-    .in("estado", VIGENTES)
-  const coinciden = (otros ?? []).filter((o) => o.fecha_inicio <= grupo.fecha_fin && grupo.fecha_inicio <= o.fecha_fin)
-  if (!coinciden.length) return undefined
-  const { data: horarios } = await supabase
-    .from("horarios")
-    .select("grupo_id, dia_semana, hora_inicio, hora_fin")
-    .eq("institucion_id", institucionId)
-    .in("grupo_id", coinciden.map((o) => o.id))
-  const cruce = (horarios ?? []).find((o) =>
-    franjas.some(
-      (f) =>
-        f.dia_semana === o.dia_semana &&
-        seSolapan({ inicio: horaCorta(f.hora_inicio), fin: horaCorta(f.hora_fin) }, { inicio: horaCorta(o.hora_inicio), fin: horaCorta(o.hora_fin) })
-    )
-  )
-  if (!cruce) return undefined
-  const otro = coinciden.find((o) => o.id === cruce.grupo_id)
-  return `Se detectó un conflicto de horario: el docente ya tiene clase a esa hora en el grupo ${otro?.codigo ?? ""}. Revisa si es correcto.`
+  docenteId: string,
+  grupoId: string,
+  periodo: { desde: string; hasta: string },
+  franjas: { dia_semana: number; hora_inicio: string; hora_fin: string }[] | null
+): Promise<Fallo | null> {
+  let propias = franjas
+  if (!propias) {
+    const { data, error } = await supabase.from("horarios").select("dia_semana, hora_inicio, hora_fin").eq("grupo_id", grupoId).eq("institucion_id", institucionId)
+    if (error) return falloBD(error)
+    propias = data ?? []
+  }
+  const cruces = await buscarCrucesDocente(supabase, institucionId, docenteId, { ...periodo, franjas: propias }, grupoId)
+  if (cruces === "error") return { ok: false, gravedad: "error", mensaje: "No se pudo comprobar el horario del docente. Inténtalo de nuevo." }
+  if (cruces.length === 0) return null
+  const lista = cruces.slice(0, 3).map(mensajeCruce).join(" ")
+  return { ok: false, gravedad: "advertencia", mensaje: `${lista} Cambia el horario o elige otro docente.` }
+}
+
+const RE_FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/
+const RE_HORA = /^\d{2}:\d{2}/
+
+type FranjaEntrada = { dia_semana: number; hora_inicio: string; hora_fin: string }
+const esFranja = (f: unknown): f is FranjaEntrada =>
+  typeof f === "object" &&
+  f !== null &&
+  Number.isInteger((f as FranjaEntrada).dia_semana) &&
+  (f as FranjaEntrada).dia_semana >= 1 &&
+  (f as FranjaEntrada).dia_semana <= 7 &&
+  RE_HORA.test(String((f as FranjaEntrada).hora_inicio)) &&
+  RE_HORA.test(String((f as FranjaEntrada).hora_fin))
+
+/**
+ * Consulta en vivo (formularios de grupo, horarios y asignación): ¿la
+ * programación propuesta cruza con otra clase del docente? No guarda nada.
+ */
+export async function revisarCruceDocente(datos: unknown): Promise<{ ok: true; cruces: string[] } | { ok: false; mensaje: string }> {
+  const institucionId = await institucionDelAdmin("docentes")
+  if (!institucionId) return { ok: false, mensaje: SIN_PERMISO.mensaje }
+  const d = datos as { grupoId?: unknown; docenteId?: unknown; fechaInicio?: unknown; fechaFin?: unknown; franjas?: unknown } | null
+  const docente = idSchema.safeParse(d?.docenteId)
+  const grupo = d?.grupoId == null ? { success: true as const, data: null } : idSchema.safeParse(d.grupoId)
+  if (!docente.success || !grupo.success || typeof d?.fechaInicio !== "string" || typeof d?.fechaFin !== "string" || !RE_FECHA_ISO.test(d.fechaInicio) || !RE_FECHA_ISO.test(d.fechaFin)) {
+    return { ok: true, cruces: [] }
+  }
+  const supabase = await createClient()
+  let franjas: FranjaEntrada[] = []
+  if (Array.isArray(d.franjas)) franjas = d.franjas.slice(0, 30).filter(esFranja)
+  else if (grupo.data) {
+    const { data } = await supabase.from("horarios").select("dia_semana, hora_inicio, hora_fin").eq("grupo_id", grupo.data).eq("institucion_id", institucionId)
+    franjas = data ?? []
+  }
+  const cruces = await buscarCrucesDocente(supabase, institucionId, docente.data, { desde: d.fechaInicio, hasta: d.fechaFin, franjas }, grupo.data)
+  if (cruces === "error") return { ok: false, mensaje: "No se pudo comprobar el horario del docente." }
+  return { ok: true, cruces: cruces.slice(0, 5).map(mensajeCruce) }
 }
 
 // ---------------------------------------------------------------------------

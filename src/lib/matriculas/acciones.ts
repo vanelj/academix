@@ -25,7 +25,7 @@ export type ResultadoMatricula = { ok: true } | { ok: false; mensaje: string; gr
 const anulacionSchema = z.object({ id: idSchema, confirmado: z.literal(true) })
 
 export async function anularMatricula(datos: unknown): Promise<ResultadoMatricula> {
-  const institucionId = await institucionDelAdmin()
+  const institucionId = await institucionDelAdmin("estudiantes")
   if (!institucionId) return { ok: false, gravedad: "error", mensaje: "Tu sesión no tiene permiso de administrador. Vuelve a iniciar sesión." }
   const v = anulacionSchema.safeParse(datos)
   if (!v.success) return { ok: false, gravedad: "error", mensaje: "Confirma la anulación para continuar." }

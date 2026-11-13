@@ -52,7 +52,7 @@ async function CatalogoInicio() {
   if (resultado.ok) {
     // Chips de categoría en orden alfabético, igual que el panel de Cursos.
     const { categoryOptions } = opcionesCatalogo(resultado.cursos, { q: "", categoria: "", institucion: "" })
-    return <InicioCatalogo cursos={resultado.cursos.map(aCursoAcademix)} categorias={categoryOptions} estado="ready" />
+    return <InicioCatalogo cursos={resultado.cursos.map((c) => aCursoAcademix(c))} categorias={categoryOptions} estado="ready" />
   }
   return (
     <InicioCatalogo cursos={[]} estado="error" />

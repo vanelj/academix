@@ -2,6 +2,7 @@ import { cache } from "react"
 import { redirect } from "next/navigation"
 
 import type { ShellUser } from "@/config/demo-user"
+import { ACCESO_COMPLETO, normalizarModulos, puede, type AccesoAdmin, type AreaAdmin } from "@/lib/admin/permisos"
 import type { Role } from "@/config/navigation"
 import { activacionPendiente } from "@/lib/auth/activacion"
 import { esRol, panelDeRol } from "@/lib/auth/roles"
@@ -165,12 +166,43 @@ export async function requerirPanel(rol: Role): Promise<SesionPanel> {
   return { ...ctx, rolActivo: rol }
 }
 
+const TABLA_INEXISTENTE = new Set(["42P01", "PGRST205"])
+
+/**
+ * Acceso del administrador actual dentro de su institución (equipo
+ * administrativo, administracion_v5). Sin la migración, todos conservan el
+ * acceso completo de siempre. Sin fila propia (cuenta anterior a la
+ * migración), también: la migración crea las filas de los administradores existentes.
+ */
+export const accesoAdmin = cache(async (): Promise<AccesoAdmin | null> => {
+  const ctx = await obtenerContexto()
+  if (ctx.estado !== "con_perfil" || ctx.activacionPendiente || !ctx.perfil.activo || ctx.rolActivo !== "admin" || !ctx.perfil.institucionId) {
+    return null
+  }
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("administradores_institucion")
+    .select("principal, acceso_total, modulos, activo")
+    .eq("perfil_id", ctx.userId)
+    .eq("institucion_id", ctx.perfil.institucionId)
+    .maybeSingle()
+  if (error) {
+    if (TABLA_INEXISTENTE.has(error.code ?? "")) return { ...ACCESO_COMPLETO, sinMigracion: true }
+    console.error("[auth] acceso de administrador", error.code, error.message)
+    throw new Error("No se pudieron comprobar los permisos del administrador.")
+  }
+  if (!data) return ACCESO_COMPLETO
+  if (!data.activo) return null
+  return { principal: Boolean(data.principal), total: Boolean(data.principal || data.acceso_total), modulos: normalizarModulos(data.modulos) }
+})
+
 /**
  * Para acciones de servidor del administrador: id de su institución, o null.
  * Se obtiene del perfil en el servidor (nunca del navegador) y exige perfil
- * activo y rol admin activo. RLS vuelve a comprobarlo en la BD.
+ * activo, rol admin activo y, si se indica, permiso sobre el área (módulo).
+ * RLS vuelve a comprobarlo en la BD.
  */
-export async function institucionDelAdmin(): Promise<string | null> {
+export async function institucionDelAdmin(area?: AreaAdmin): Promise<string | null> {
   const ctx = await obtenerContexto()
   if (
     ctx.estado !== "con_perfil" ||
@@ -181,7 +213,18 @@ export async function institucionDelAdmin(): Promise<string | null> {
   ) {
     return null
   }
+  const acceso = await accesoAdmin()
+  if (!acceso || (area && !puede(acceso, area))) return null
   return ctx.perfil.institucionId
+}
+
+/** Para layouts de cada sección del panel: sin permiso sobre el área, vuelve al resumen. */
+export async function requerirArea(area: AreaAdmin): Promise<AccesoAdmin> {
+  await requerirPanel("admin")
+  const acceso = await accesoAdmin()
+  if (!acceso) redirect("/cuenta")
+  if (!puede(acceso, area)) redirect("/admin?aviso=sin-permiso")
+  return acceso
 }
 
 /**
@@ -222,4 +265,13 @@ export function usuarioDelPanel(sesion: SesionPanel): ShellUser {
     institutionLogo: sesion.rolActivo === "estudiante" ? null : sesion.institucionLogo,
     roles: sesion.roles,
   }
+}
+
+/** Igual que usuarioDelPanel, con las áreas del panel admin que puede ver (para el menú). */
+export async function usuarioDelPanelAdmin(sesion: SesionPanel): Promise<ShellUser> {
+  const acceso = await accesoAdmin()
+  const areas: AreaAdmin[] = acceso
+    ? (["cursos", "docentes", "estudiantes", "pagos", "evaluaciones", "certificados", "institucion", "equipo"] as AreaAdmin[]).filter((a) => puede(acceso, a))
+    : []
+  return { ...usuarioDelPanel(sesion), areas }
 }
