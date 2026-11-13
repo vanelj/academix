@@ -50,6 +50,8 @@ export interface CourseSummary {
   isDemo?: boolean;
   /** Estado de inscripción según sus grupos reales (p. ej. «Inscripciones abiertas», «En curso»). */
   availability?: { label: string; tone: 'open' | 'soon' | 'running' | 'closed'; detail?: string | null } | null;
+  /** Con sesión de estudiante: el curso ya es suyo (matrícula o inscripción en trámite). */
+  enrollment?: { label: string; href: string; actionLabel: string } | null;
 }
 
 /** Variante de color para la franja de la tarjeta de institución. */

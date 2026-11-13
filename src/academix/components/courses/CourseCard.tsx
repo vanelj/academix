@@ -54,7 +54,11 @@ export function CourseCard({
             {course.category.name} <span className="whitespace-nowrap font-normal text-ax-muted">· Virtual</span>
           </span>
           {course.isDemo ? <DemoTag /> : null}
-          {course.availability ? <AvailabilityTag availability={course.availability} /> : null}
+          {course.enrollment ? (
+            <span className="ml-auto inline-flex items-center rounded-full bg-ax-soft-violet px-2.5 py-0.5 text-[12px] font-bold text-ax-violet-text">{course.enrollment.label}</span>
+          ) : course.availability ? (
+            <AvailabilityTag availability={course.availability} />
+          ) : null}
         </div>
         <H className="font-ax-display text-[21px] font-bold leading-[1.1] tracking-[-0.03em] text-balance">{course.title}</H>
         {!compact && course.description ? (
@@ -76,12 +80,13 @@ export function CourseCard({
           {compact ? null : precio}
         </div>
         <div className="mt-2 flex items-center gap-3">
+          {/* Curso propio: acceso directo a su curso o a su pago, en lugar de la ficha. */}
           <L
-            href={href}
-            aria-label={`${ctaLabel}: ${course.title}`}
-            className={buttonClasses('outline', 'sm', compact ? undefined : 'w-full')}
+            href={course.enrollment ? course.enrollment.href : href}
+            aria-label={`${course.enrollment ? course.enrollment.actionLabel : ctaLabel}: ${course.title}`}
+            className={buttonClasses(course.enrollment ? 'primary' : 'outline', 'sm', compact ? undefined : 'w-full')}
           >
-            {ctaLabel}
+            {course.enrollment ? course.enrollment.actionLabel : ctaLabel}
           </L>
           {compact ? precio : null}
         </div>

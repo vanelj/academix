@@ -17,7 +17,6 @@ import { obtenerContexto } from "@/lib/auth/contexto"
 import { obtenerDetalleCurso } from "@/lib/inscripcion/datos"
 import { estadoEnCurso } from "@/lib/inscripcion/estado-estudiante"
 import { courseFiltersToSearchParams, parseCourseSearchParams } from "@/academix/lib/filters"
-import { consultaExplorar } from "@/lib/oferta/explorar"
 import { obtenerGruposOferta } from "@/lib/oferta/grupos"
 import { DIAS_SEMANA, idSchema } from "@/lib/validations/grupo"
 
@@ -48,11 +47,7 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
     ? await estadoEnCurso(ctx.userId, curso.id, curso.grupos.map((g) => g.id))
     : null
   // Volver al catálogo con los mismos filtros (?volver=…, reconstruido solo con filtros válidos).
-  // Desde el panel del estudiante (?desde=panel) se vuelve a «Explorar cursos» del panel.
-  const desdePanel = sp.desde === "panel" && sesion === "estudiante"
-  const volver = typeof sp.volver === "string"
-    ? (desdePanel ? consultaExplorar(new URLSearchParams(sp.volver)) : courseFiltersToSearchParams(parseCourseSearchParams(Object.fromEntries(new URLSearchParams(sp.volver)))).toString())
-    : ""
+  const volver = typeof sp.volver === "string" ? courseFiltersToSearchParams(parseCourseSearchParams(Object.fromEntries(new URLSearchParams(sp.volver)))).toString() : ""
   const c = curso.condiciones
   const politicas = curso.politicas
   const categoriaVisual = getCategoryVisual({ slug: "", name: curso.categoria })
@@ -72,24 +67,11 @@ export default async function CursoPublicoPage({ params, searchParams }: PagePro
       <AxCabecera activa="courses" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <nav aria-label="Navegación" className="-ml-2.5 mb-4 flex flex-wrap items-center gap-1">
-          {desdePanel ? (
-            <>
-              <Link href={volver ? `/estudiante/explorar?${volver}` : "/estudiante/explorar"} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                <ArrowLeft aria-hidden />
-                Volver al catálogo
-              </Link>
-              <Link href="/estudiante/cursos" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mis cursos</Link>
-              <Link href="/estudiante" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mi panel</Link>
-            </>
-          ) : (
-            <>
-              <Link href={volver ? `/cursos?${volver}` : "/cursos"} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                <ArrowLeft aria-hidden />
-                Volver a cursos
-              </Link>
-              {sesion === "estudiante" && <Link href="/estudiante" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mi panel</Link>}
-            </>
-          )}
+          <Link href={volver ? `/cursos?${volver}` : "/cursos"} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <ArrowLeft aria-hidden />
+            Volver a cursos
+          </Link>
+          {sesion === "estudiante" && <Link href="/estudiante" className={buttonVariants({ variant: "ghost", size: "sm" })}>Mi panel</Link>}
         </nav>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">

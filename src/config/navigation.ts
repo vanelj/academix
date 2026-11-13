@@ -261,9 +261,10 @@ export const roleConfig: Record<Role, RoleConfig> = {
             disponible: true,
           },
           {
-            // Catálogo dentro del panel (no sale de la sesión); el público sigue en /cursos.
+            // Catálogo único (/cursos): conserva la sesión, marca los cursos propios y
+            // su cabecera ofrece «Inicio» y «Mi panel».
             title: "Explorar cursos",
-            href: "/estudiante/explorar",
+            href: "/cursos",
             icon: Compass,
             description: "Descubre la oferta de cursos de las instituciones.",
             disponible: true,

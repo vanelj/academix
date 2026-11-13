@@ -67,7 +67,7 @@ export function MisSolicitudes({ solicitudes }: { solicitudes: MiSolicitud[] }) 
             <p className="font-medium">Aún no tienes solicitudes</p>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">Explora el catálogo y elige un grupo con inscripciones abiertas.</p>
           </div>
-          <Link href="/estudiante/explorar" className={buttonVariants()}>Explorar cursos</Link>
+          <Link href="/cursos" className={buttonVariants()}>Explorar cursos</Link>
         </CardContent>
       </Card>
     )

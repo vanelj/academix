@@ -25,7 +25,7 @@ export default async function MisCursosPage() {
       title="Mis cursos"
       description="Todos tus cursos con matrícula confirmada, de cualquier institución. Entra a cada curso para ver tus clases, materiales y notas."
       actions={
-        <Link href="/estudiante/explorar" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/cursos" className={buttonVariants({ variant: "outline" })}>
           <Compass aria-hidden />
           Explorar cursos
         </Link>
@@ -58,7 +58,7 @@ export default async function MisCursosPage() {
               Si enviaste una solicitud, su avance está en <Link href="/estudiante/solicitudes" className="underline">Mis solicitudes</Link>:
               la matrícula se confirma cuando la institución la aprueba y, si corresponde, verifica tu pago.
             </p>
-            <Link href="/estudiante/explorar" className={buttonVariants()}>Explorar cursos</Link>
+            <Link href="/cursos" className={buttonVariants()}>Explorar cursos</Link>
           </CardContent>
         </Card>
       </>

@@ -17,7 +17,6 @@ import { coincidencias, crucesDocente, crucesSemanales, fechasDelDia, mensajeCru
 import { comparaCarga, horasAcademicas, programar } from "@/lib/horarios/programacion"
 import { modoApertura, visualizableEnNavegador } from "@/lib/materiales/reglas"
 import { admiteInscripcion, coincideEstado, disponibilidadCurso, estadoInscripcionGrupo, type GrupoDisponible } from "@/lib/oferta/disponibilidad"
-import { consultaFiltros, enlaceFichaDesdePanel, leerFiltrosExplorar } from "@/lib/oferta/explorar"
 import { estadoAlumno, notaDesdePuntaje, plazoEntrega, puedeEntregar, rutaEntrega, type Entrega, type Tarea } from "@/lib/tareas/reglas"
 
 const lunes = (hi: string, hf: string) => [{ dia_semana: 1, hora_inicio: hi, hora_fin: hf }]
@@ -138,21 +137,6 @@ describe("Fechas y horas en America/Lima", () => {
     assert.equal(instanteDesdeHoraLima("2026-11-20T23:59"), "2026-11-21T04:59:00.000Z")
     assert.equal(horaLimaParaInput("2026-11-21T04:59:00.000Z"), "2026-11-20T23:59")
     assert.equal(instanteDesdeHoraLima("20/11/2026"), null)
-  })
-})
-
-describe("Explorar cursos (panel del estudiante)", () => {
-  const cat = "11111111-1111-1111-1111-111111111111"
-  it("los filtros válidos viven en la URL y los inválidos se descartan", () => {
-    const f = leerFiltrosExplorar(new URLSearchParams(`q=python&categoria=${cat}&institucion=<script>&estado=abiertas`))
-    assert.deepEqual(f, { q: "python", categoria: cat, institucion: "", estado: "abiertas" })
-    assert.equal(leerFiltrosExplorar({ estado: "inventado" }).estado, "todos")
-  })
-  it("la ficha vuelve al mismo listado del panel (no a la portada pública)", () => {
-    const f = leerFiltrosExplorar({ q: "excel", estado: "en_curso" })
-    const href = enlaceFichaDesdePanel("c1", f)
-    assert.match(href, /^\/cursos\/c1\?desde=panel&volver=/)
-    assert.equal(decodeURIComponent(href.split("volver=")[1]), consultaFiltros(f))
   })
 })
 

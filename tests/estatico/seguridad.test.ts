@@ -391,9 +391,15 @@ describe("Revisión funcional previa al despliegue", () => {
     assert.match(leer(path.join(src, "lib", "paneles", "resumen.ts")), /pagos_certificado/)
   })
 
-  it("«Explorar cursos» del estudiante no sale del panel", () => {
+  it("«Explorar cursos» usa el catálogo único, que reconoce los cursos propios del estudiante", () => {
     const item = getNavItems("estudiante").find((i) => i.title === "Explorar cursos")
-    assert.equal(item?.href, "/estudiante/explorar")
+    assert.equal(item?.href, "/cursos")
+    assert.ok(!existsSync(path.join(src, "app", "estudiante", "explorar")), "no debe haber un segundo catálogo")
+    const catalogo = leer(path.join(src, "app", "cursos", "page.tsx"))
+    assert.match(catalogo, /rolActivo === "estudiante" \? await inscripcionesPropias\(ctx\.userId\)/)
+    assert.match(leer(path.join(src, "academix", "components", "courses", "CourseCard.tsx")), /course\.enrollment/)
+    // La lectura de lo propio usa la sesión (RLS), nunca la clave de servicio.
+    assert.doesNotMatch(leer(path.join(src, "lib", "oferta", "propios.ts")), /supabase\/admin|SECRET/)
   })
 
   it("el logotipo de los correos es un archivo público pequeño", () => {

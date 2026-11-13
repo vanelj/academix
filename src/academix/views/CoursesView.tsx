@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { CourseFiltersPanel } from '../components/courses/CourseFiltersPanel';
 import { CourseResults } from '../components/courses/CourseResults';
 import { CoursesToolbar, type ActiveChip } from '../components/courses/CoursesToolbar';
@@ -29,6 +29,8 @@ export interface CoursesViewProps {
   onRetry?: () => void;
   /** Espera antes de enviar la búsqueda escrita (ms). */
   searchDebounceMs?: number;
+  /** Aviso sobre los resultados (p. ej. al estudiante que ya tiene todos los cursos). */
+  notice?: ReactNode;
   /** Foto del encabezado (se oculta en móvil). `null` para no mostrarla. */
   introImage?: HeroImage | null;
 }
@@ -44,6 +46,7 @@ export function CoursesView({
   totalCount,
   onRetry,
   searchDebounceMs = 300,
+  notice,
   introImage = { src: '/academix/estudiantes-biblioteca.jpg', alt: 'Estudiante trabajando con su laptop en una biblioteca' },
 }: CoursesViewProps) {
   const { Link, Image: Img, routes } = useAcademixUI();
@@ -149,6 +152,7 @@ export function CoursesView({
                 chips={chips}
               />
               <div className="min-w-0 max-[900px]:order-4 max-[900px]:w-full">
+                {notice ? <div className="mb-[18px]">{notice}</div> : null}
                 <CourseResults
                   status={status}
                   courses={courses}
